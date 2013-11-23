@@ -12,7 +12,7 @@ const (
 
 func main() {
     /* socket connect */
-    conn, err := net.Dial("tcp", "golang.org:80")
+    conn, err := net.Dial("tcp", "localhost:80")
     if err != nil {
         fmt.Println("ERROR: ", err.Error())
         return;
