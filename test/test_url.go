@@ -20,23 +20,21 @@ package main
 
 import (
     "fmt"
-    "github.com/xiangzhai/goaxel/conn"
+    "net/url"
+    "strings"
+    "path"
 )
 
 func main() {
-    http := new(conn.HTTP)
-    http.Debug = true
-    http.Connect("localhost", 80)
-    http.Get("/test.mp4", 1, 0)
-    http.Response()
-    length := http.GetContentLength()
-    fmt.Println("content length: ", length)
-    range_len := length / 6
-    for i := 0; i < 6; i++ {
-        if i != 5 {
-            fmt.Printf("range %d - %d\n", 1 + i * range_len, range_len + i * range_len)
-        } else {
-            fmt.Printf("range %d - %d\n", 1 + i * range_len, length)
-        }
+    u, err := url.Parse("http://localhost/leslie/movie/show/test.mp4")
+    if err != nil {
+        fmt.Println("ERROR:", err.Error())
     }
+    fmt.Println("protocol:", u.Scheme)
+    fmt.Println("host:", u.Host)
+    if !strings.Contains(u.Host, ":") {
+        fmt.Println("port: 80")
+    }
+    fmt.Println("path:", u.Path)
+    fmt.Println("base:", path.Base(u.Path))
 }

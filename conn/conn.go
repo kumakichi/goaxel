@@ -16,27 +16,36 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.        
  */
 
-package main
+package conn
 
 import (
     "fmt"
-    "github.com/xiangzhai/goaxel/conn"
 )
 
-func main() {
-    http := new(conn.HTTP)
-    http.Debug = true
-    http.Connect("localhost", 80)
-    http.Get("/test.mp4", 1, 0)
-    http.Response()
-    length := http.GetContentLength()
-    fmt.Println("content length: ", length)
-    range_len := length / 6
-    for i := 0; i < 6; i++ {
-        if i != 5 {
-            fmt.Printf("range %d - %d\n", 1 + i * range_len, range_len + i * range_len)
-        } else {
-            fmt.Printf("range %d - %d\n", 1 + i * range_len, length)
+type CONN struct {
+    Protocol    string
+    Host        string
+    Port        int
+    User        string
+    Passwd      string
+    Path        string
+    Debug       bool
+    http        HTTP
+}
+
+func (conn *CONN) GetContentLength() int {
+    ret := 0
+
+    if conn.Protocol == "http" {
+        if conn.Debug {
+            fmt.Println("DEBUG: use http protocol")
         }
+        conn.http.Debug = conn.Debug
+        conn.http.Connect(conn.Host, conn.Port)
+        conn.http.Get(conn.Path, 1, 0)
+        conn.http.Response()
+        ret = conn.http.GetContentLength()
     }
+
+    return ret
 }

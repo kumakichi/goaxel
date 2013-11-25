@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.        
  */
 
-package http
+package conn
 
 import (
     "fmt"
@@ -69,9 +69,13 @@ func (http *HTTP) Response() {
     http.conn.Close()
 }
 
-func (http *HTTP) Get(url string) {
-    http.AddHeader("GET " + url + " HTTP/1.0")
-    http.AddHeader("Range: bytes=1-")
+func (http *HTTP) Get(url string, range_from, range_to int) {
+    http.AddHeader(fmt.Sprintf("GET %s HTTP/1.0", url))
+    if range_to == 0 {
+        http.AddHeader(fmt.Sprintf("Range: bytes=1-"))
+    } else {
+        http.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", range_from, range_to))
+    }
     http.AddHeader("User-Agent: GoAxel 1.")
     _, http.Error = http.conn.Write([]byte(http.header))
     if http.Error != nil {
