@@ -19,7 +19,7 @@ func main() {
     }
 
     /* socket write */
-    _, err = conn.Write([]byte("GET / HTTP/1.0\r\n\r\nRange: bytes=1-\r\n\r\nUser-Agent: GoAxel 1.0\r\n\r\n"))
+    _, err = conn.Write([]byte("GET /test.mp4 HTTP/1.0\r\n\r\nRange: bytes=1-\r\n\r\nUser-Agent: GoAxel 1.0\r\n\r\n"))
     if err != nil {
         fmt.Println("ERROR: ", err.Error())
         return;

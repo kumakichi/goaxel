@@ -3,7 +3,7 @@ package main
 import (
     "fmt"
     "os"
-    "github.com/xiangzhai/ftp.go"
+    "github.com/xiangzhai/goftp"
 )
 
 func main() {
@@ -22,6 +22,8 @@ func main() {
     }
     // pwd
     ftp.Pwd()
+    fmt.Println("code:", ftp.Code, ", message:", ftp.Message)
+    ftp.Request("LS ")
     fmt.Println("code:", ftp.Code, ", message:", ftp.Message)
     // quit
     ftp.Quit()
