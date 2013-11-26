@@ -24,18 +24,21 @@ import (
     "regexp"
     "strings"
     "strconv"
+    "os"
 )
 
 type HTTP struct {
-    host    string
-    port    int
-    user    string
-    passwd  string
-    Debug   bool
-    conn    net.Conn
-    header  string
-    content string
-    Error   error
+    host            string
+    port            int
+    user            string
+    passwd          string
+    Debug           bool
+    UserAgent       string
+    conn            net.Conn
+    header          string
+    headerResponse  string
+    offset          int
+    Error           error
 }
 
 const (
@@ -56,31 +59,93 @@ func (http *HTTP) AddHeader(header string) {
     http.header += header + "\r\n\r\n"
 }
 
+/* TODO: get http header */
 func (http *HTTP) Response() {
-    data := make([]byte, buffer_size)
-    n, err := http.conn.Read(data)
-    if err != nil {
-        defer http.conn.Close()
-        http.Error = err
-        fmt.Println("ERROR: ", err.Error())
-        return
+    for i := 0; ; {
+        data := make([]byte, 1)
+        n, err := http.conn.Read(data)
+        if err != nil {
+            defer http.conn.Close()
+            http.Error = err
+            fmt.Println("ERROR: ", err.Error())
+            return
+        }
+        if data[0] == '\r' {
+            continue
+        } else if data[0] == '\n' {
+            if i == 0 {
+                break
+            }
+            i = 0
+        } else {
+            i++
+        }
+        http.headerResponse += string(data[:n])
     }
-    http.content = string(data[:n])
+    if http.Debug {
+        fmt.Println("DEBUG :", http.headerResponse)
+    }
+    http.conn.Close()
+}
+
+func (http *HTTP) WriteToFile(f *os.File) {
+    for i := 0; ; {
+        data := make([]byte, 1)
+        _, err := http.conn.Read(data)
+        if err != nil {
+            defer http.conn.Close()
+            http.Error = err
+            fmt.Println("ERROR: ", err.Error())
+            return
+        }
+        if data[0] == '\r' {
+            continue
+        } else if data[0] == '\n' {
+            if i == 0 {
+                break
+            }
+            i = 0
+        } else {
+            i++
+        }
+    }
+
+    for {
+        data := make([]byte, 1)
+        n, err := http.conn.Read(data)
+        if err != nil {
+            defer http.conn.Close()
+            return
+        }
+        f.WriteAt(data, int64(http.offset - 1))
+        http.offset += n
+    }
     http.conn.Close()
 }
 
 func (http *HTTP) Get(url string, range_from, range_to int) {
+    http.offset = range_from
     http.AddHeader(fmt.Sprintf("GET %s HTTP/1.0", url))
     if range_to == 0 {
         http.AddHeader(fmt.Sprintf("Range: bytes=1-"))
     } else {
         http.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", range_from, range_to))
     }
-    http.AddHeader("User-Agent: GoAxel 1.")
+    http.AddHeader(fmt.Sprintf("User-Agent: %s", http.UserAgent))
     _, http.Error = http.conn.Write([]byte(http.header))
     if http.Error != nil {
         fmt.Println("ERROR: ", http.Error.Error())
     }
+}
+
+func (http *HTTP) IsAcceptRange() bool {
+    ret := false
+
+    if strings.Contains(http.headerResponse, "Accept-Ranges") {
+        ret = true
+    }
+
+    return ret
 }
 
 func (http *HTTP) GetContentLength() int {
@@ -91,7 +156,7 @@ func (http *HTTP) GetContentLength() int {
         fmt.Println("ERROR: ", err.Error())
         return ret
     }
-    result := r.FindStringSubmatch(http.content)
+    result := r.FindStringSubmatch(http.headerResponse)
     if len(result) != 0 {
         s := strings.TrimSuffix(result[1], "\r")
         ret, http.Error = strconv.Atoi(s)

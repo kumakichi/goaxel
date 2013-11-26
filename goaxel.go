@@ -19,56 +19,91 @@
 package main
 
 import (
+    "fmt"
     "flag"
     "os"
     "net/url"
     "strings"
     "strconv"
-    "fmt"
+    "path"
+    "time"
     "github.com/xiangzhai/goaxel/conn"
 )
 
 const (
-    app_name string = "GoAxel"
+    app_name                string = "GoAxel"
+    default_output_filename string = "default"
 )
 
 var (
-    conn_num    uint
-    user_agent  string
-    urls        []string
+    conn_num        uint
+    user_agent      string
+    debug           bool
+    urls            []string
+    output_filename string
+    output_file     *os.File
+    protocol        string
+    host            string
+    port            int
+    strPath         string
+    content_length  int
+    acceptRange     bool
 )
 
 func init() {
     flag.UintVar(&conn_num, "n", 3, "Specify maximum speed (bytes per second)")
+    flag.StringVar(&output_filename, "o", default_output_filename, "Specify local output file")
     flag.StringVar(&user_agent, "U", app_name, "Set user agent")
+    flag.BoolVar(&debug, "d", false, "Debug")
 }
 
-func start_routine() {
+func startRoutine(range_from, range_to int) {
     go func() {
-        fmt.Println("DEBUG: start routine")
+        conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: user_agent, Path: strPath, Debug: debug}
+        conn.Get(output_file, range_from, range_to)
     }()
 }
 
+/* TODO: parse url to get host, port, path, basename */
 func parseUrl(strUrl string) {
     u, err := url.Parse(strUrl)
     if err != nil {
         fmt.Println("ERROR:", err.Error())
         return
     }
-    host := u.Host
-    port := 80
+    protocol = u.Scheme
+    host = u.Host
+    port = 80
+    strPath = u.Path
     pos := strings.Index(host, ":")
     if pos != -1 {
         port, _ = strconv.Atoi(host[pos:len(host) - pos])
         host = host[0:pos]
     }
-    conn := new(conn.CONN)
-    conn.Protocol = u.Scheme
-    conn.Host = host
-    conn.Port = port
-    conn.Path = u.Path 
-    length := conn.GetContentLength()
-    fmt.Println("DEBUG: content length", length)
+    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: user_agent, Path: strPath, Debug: debug}
+    if output_filename == default_output_filename && path.Base(strPath) != "/" {
+        output_filename = path.Base(strPath)
+    }
+    content_length, acceptRange = conn.GetContentLength()
+    if debug {
+        fmt.Println("DEBUG: output filename", output_filename)
+        fmt.Println("DEBUG: content length", content_length)
+    }
+}
+
+func splitWork() {
+    range_length := content_length / int(conn_num)
+    for i := 0; i < int(conn_num); i++ {
+        if i != int(conn_num) - 1 {
+            fmt.Printf("DEBUG: range %d - %d\n", 
+                1 + i * range_length, range_length * (1 + i))
+            startRoutine(1 + i * range_length, range_length * (1 + i))
+        } else {
+            fmt.Printf("DEBUG: range %d - %d\n", 
+                1 + i * range_length, content_length)
+            startRoutine(1 + i * range_length, content_length)
+        }
+    }
 }
 
 func main() {
@@ -98,5 +133,16 @@ func main() {
         parseUrl(urls[0])
     }
 
-    fmt.Println("num-connections:", conn_num)
+    output_file, _ = os.Create(output_filename)
+
+    if acceptRange {
+        splitWork()
+    } else {
+        fmt.Println("It does not accept range, use signal connection instead")
+        startRoutine(1, 0)
+    }
+
+    for ;; {
+        time.Sleep(100)
+    }
 }

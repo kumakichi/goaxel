@@ -19,13 +19,14 @@
 package conn
 
 import (
-    "fmt"
+    "os"
 )
 
 type CONN struct {
     Protocol    string
     Host        string
     Port        int
+    UserAgent   string
     User        string
     Passwd      string
     Path        string
@@ -33,19 +34,29 @@ type CONN struct {
     http        HTTP
 }
 
-func (conn *CONN) GetContentLength() int {
-    ret := 0
+func (conn *CONN) GetContentLength() (int, bool) {
+    var length int = 0
+    var accept bool = false
 
     if conn.Protocol == "http" {
-        if conn.Debug {
-            fmt.Println("DEBUG: use http protocol")
-        }
         conn.http.Debug = conn.Debug
+        conn.http.UserAgent = conn.UserAgent
         conn.http.Connect(conn.Host, conn.Port)
         conn.http.Get(conn.Path, 1, 0)
         conn.http.Response()
-        ret = conn.http.GetContentLength()
+        length = conn.http.GetContentLength()
+        accept = conn.http.IsAcceptRange()
     }
 
-    return ret
+    return length, accept
+}
+
+func (conn *CONN) Get(f *os.File, range_from, range_to int) {
+    if conn.Protocol == "http" {
+        conn.http.Debug = conn.Debug
+        conn.http.UserAgent = conn.UserAgent
+        conn.http.Connect(conn.Host, conn.Port)
+        conn.http.Get(conn.Path, range_from, range_to)
+        conn.http.WriteToFile(f)
+    }
 }
