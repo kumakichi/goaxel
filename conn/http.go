@@ -44,7 +44,7 @@ type HTTP struct {
 }
 
 const (
-    buffer_size int = 1024
+    buffer_size int = 1048576
 )
 
 func (http *HTTP) Connect(host string, port int) {
@@ -145,6 +145,9 @@ func (http *HTTP) Get(url string, range_from, range_to int) {
         http.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", range_from, range_to))
     }
     http.AddHeader(fmt.Sprintf("User-Agent: %s", http.UserAgent))
+    if http.Debug {
+        fmt.Println("DEBUG: http header", http.header)
+    }
     _, http.Error = http.conn.Write([]byte(http.header))
     if http.Error != nil {
         fmt.Println("ERROR: ", http.Error.Error())
