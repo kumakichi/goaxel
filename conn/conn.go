@@ -31,6 +31,7 @@ type CONN struct {
     Passwd      string
     Path        string
     Debug       bool
+    Callback    func(int)
     http        HTTP
 }
 
@@ -55,8 +56,9 @@ func (conn *CONN) Get(f *os.File, range_from, range_to int) {
     if conn.Protocol == "http" {
         conn.http.Debug = conn.Debug
         conn.http.UserAgent = conn.UserAgent
+        conn.http.Callback = conn.Callback
         conn.http.Connect(conn.Host, conn.Port)
         conn.http.Get(conn.Path, range_from, range_to)
-        conn.http.WriteToFile(f)
+        conn.http.WriteToFile(f, range_from, range_to)
     }
 }

@@ -25,6 +25,7 @@ import (
     "strings"
     "strconv"
     "os"
+    "io"
 )
 
 type HTTP struct {
@@ -39,6 +40,7 @@ type HTTP struct {
     headerResponse  string
     offset          int
     Error           error
+    Callback        func(int)
 }
 
 const (
@@ -65,10 +67,12 @@ func (http *HTTP) Response() {
         data := make([]byte, 1)
         n, err := http.conn.Read(data)
         if err != nil {
-            defer http.conn.Close()
-            http.Error = err
-            fmt.Println("ERROR: ", err.Error())
-            return
+            if err != io.EOF {
+                fmt.Println("ERROR:", err.Error())
+                defer http.conn.Close()
+                http.Error = err
+                return
+            }
         }
         if data[0] == '\r' {
             continue
@@ -88,15 +92,17 @@ func (http *HTTP) Response() {
     http.conn.Close()
 }
 
-func (http *HTTP) WriteToFile(f *os.File) {
+func (http *HTTP) WriteToFile(f *os.File, range_from, range_to int) {
     for i := 0; ; {
         data := make([]byte, 1)
         _, err := http.conn.Read(data)
         if err != nil {
-            defer http.conn.Close()
-            http.Error = err
-            fmt.Println("ERROR: ", err.Error())
-            return
+            if err != io.EOF {
+                fmt.Println("ERROR:", err.Error())
+                defer http.conn.Close()
+                http.Error = err
+                return
+            }
         }
         if data[0] == '\r' {
             continue
@@ -111,14 +117,21 @@ func (http *HTTP) WriteToFile(f *os.File) {
     }
 
     for {
-        data := make([]byte, 1)
+        data := make([]byte, buffer_size)
         n, err := http.conn.Read(data)
         if err != nil {
-            defer http.conn.Close()
-            return
+            if err != io.EOF {
+                fmt.Println("ERROR:", err.Error())
+                defer http.conn.Close()
+                http.Error = err
+                return
+            }
         }
         f.WriteAt(data, int64(http.offset - 1))
         http.offset += n
+        if http.Callback != nil {
+            http.Callback(n)
+        }
     }
     http.conn.Close()
 }
