@@ -26,7 +26,6 @@ import (
     "strings"
     "strconv"
     "path"
-    "time"
     "github.com/xiangzhai/goaxel/conn"
 )
 
@@ -49,6 +48,7 @@ var (
     contentLength   int
     acceptRange     bool
     received        int = 0
+    ch              chan int
 )
 
 func init() {
@@ -60,14 +60,12 @@ func init() {
 
 func connCallback(n int) {
     received += n
-    fmt.Println("DEBUG: received", received)
+    ch <- received
 }
 
 func startRoutine(range_from, range_to int) {
-    go func() {
-        conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, Path: strPath, Debug: debug, Callback: connCallback}
-        conn.Get(outputFile, range_from, range_to)
-    }()
+    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, Path: strPath, Debug: debug, Callback: connCallback}
+    conn.Get(outputFile, range_from, range_to)
 }
 
 /* TODO: parse url to get host, port, path, basename */
@@ -99,16 +97,20 @@ func parseUrl(strUrl string) {
 
 func splitWork() {
     range_length := contentLength / int(connNum)
+    ch = make(chan int, connNum)
     for i := 0; i < int(connNum); i++ {
         if i != int(connNum) - 1 {
             fmt.Printf("DEBUG: range %d - %d\n", 
                 1 + i * range_length, range_length * (1 + i))
-            startRoutine(1 + i * range_length, range_length * (1 + i))
+            go startRoutine(1 + i * range_length, range_length * (1 + i))
         } else {
             fmt.Printf("DEBUG: range %d - %d\n", 
                 1 + i * range_length, contentLength)
-            startRoutine(1 + i * range_length, contentLength)
+            go startRoutine(1 + i * range_length, contentLength)
         }
+    }
+    for i := 0; i < int(connNum); i++ {
+        fmt.Println("received:", <-ch)
     }
 }
 
@@ -145,13 +147,8 @@ func main() {
         splitWork()
     } else {
         fmt.Println("It does not accept range, use signal connection instead")
-        startRoutine(1, 0)
-    }
-
-    for {
-        if received >= contentLength {
-            return
-        }
-        time.Sleep(100)
+        ch = make(chan int)
+        go startRoutine(1, 0)
+        fmt.Println("received:", <-ch)
     }
 }
