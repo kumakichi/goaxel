@@ -64,17 +64,3 @@ func (conn *CONN) Get(range_from, range_to int, f *os.File) {
         conn.http.WriteToFile(f)
     }
 }
-
-/*
-func (conn *CONN) Get(range_from, range_to int, fileName string) {
-    if conn.Protocol == "http" || conn.Protocol == "https" {
-        conn.http.Debug = conn.Debug
-        conn.http.Protocol = conn.Protocol
-        conn.http.UserAgent = conn.UserAgent
-        conn.http.Callback = conn.Callback
-        conn.http.Connect(conn.Host, conn.Port)
-        conn.http.Get(conn.Path, range_from, range_to)
-        conn.http.WriteToFile(fileName, range_from)
-    }
-}
-*/

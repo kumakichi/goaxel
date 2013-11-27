@@ -50,7 +50,6 @@ const (
 
 func (http *HTTP) Connect(host string, port int) {
     address := fmt.Sprintf("%s:%d", host, port)
-    fmt.Println("DEBUG:", address)
     http.conn, http.Error = net.Dial("tcp", address)
     if http.Error != nil {
         fmt.Println("ERROR: ", http.Error.Error())
@@ -139,57 +138,6 @@ func (http *HTTP) WriteToFile(f *os.File) {
     }
     return
 }
-
-/*
-func (http *HTTP) WriteToFile(fileName string, range_from int) {
-    defer http.conn.Close()
-    resp := ""
-    for i := 0; ; {
-        data := make([]byte, 1)
-        n, err := http.conn.Read(data)
-        if err != nil {
-            if err != io.EOF {
-                fmt.Println("ERROR:", err.Error())
-                defer http.conn.Close()
-                http.Error = err
-                return
-            }
-        }
-        if data[0] == '\r' {
-            continue
-        } else if data[0] == '\n' {
-            if i == 0 {
-                break
-            }
-            i = 0
-        } else {
-            i++
-        }
-        resp += string(data[:n])
-    }
-    if http.Debug {
-        fmt.Println("DEBUG:", resp)
-    }
-
-    for {
-        data := make([]byte, buffer_size)
-        n, err := http.conn.Read(data)
-        if err != nil {
-            return
-        }
-        chunkName := fmt.Sprintf("%s.part.%d", fileName, range_from)
-        f, err := os.Create(chunkName)
-        if err != nil { panic(err) }
-        defer f.Close()
-        f.WriteAt(data[:n], int64(http.offset))
-        if http.Callback != nil {
-            http.Callback(n)
-        }
-        http.offset += n
-    }
-    return
-}
-*/
 
 func (http *HTTP) Get(url string, range_from, range_to int) {
     http.offset = range_from

@@ -26,9 +26,6 @@ import (
     "strings"
     "strconv"
     "path"
-    "path/filepath"
-    "io"
-    "bufio"
     "sync"
     "github.com/xiangzhai/goaxel/conn"
 )
@@ -72,7 +69,6 @@ func startRoutine(range_from, range_to int) {
     defer wg.Done()
     conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, Path: strPath, Debug: debug, Callback: connCallback}
     conn.Get(range_from, range_to, outputFile)
-    //conn.Get(range_from, range_to, outputFileName)
 }
 
 /* TODO: parse url to get host, port, path, basename */
@@ -115,40 +111,6 @@ func splitWork() {
     }
 }
 
-func writeChunk(path string) {
-    err := filepath.Walk(path, func(path string, f os.FileInfo, err error) error {
-        if f == nil {return err}
-        if f.IsDir() {return nil}
-        if strings.HasPrefix(path, fmt.Sprintf("%s.part.", outputFileName)) {
-            chunkFileName = append(chunkFileName, path)
-        }
-        return nil
-    })
-    if err != nil {
-        fmt.Printf("ERROR:", err.Error())
-        return
-    }
-    fmt.Println("DEBUG:", chunkFileName)
-    for _, v := range chunkFileName {
-        chunkFile, _  := os.Open(v)
-        defer chunkFile.Close()
-        chunkReader := bufio.NewReader(chunkFile)
-        chunkWriter := bufio.NewWriter(outputFile)
-
-        buf := make([]byte, 1024)
-        for {
-            n, err := chunkReader.Read(buf)
-            if err != nil && err != io.EOF { panic(err) }
-            if n == 0 { break }
-            if _, err := chunkWriter.Write(buf[:n]); err != nil {
-                panic(err)
-            }
-        }
-        if err := chunkWriter.Flush(); err != nil { panic(err) }
-        os.Remove(v)
-    }
-}
-
 func main() {
     if len(os.Args) == 1 {
         fmt.Println("Usage: goaxel [options] url1 [url2] [url...]")
@@ -186,5 +148,4 @@ func main() {
         go startRoutine(0, 0)
     }
     wg.Wait()
-    //writeChunk(".")
 }
