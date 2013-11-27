@@ -49,7 +49,9 @@ const (
 )
 
 func (http *HTTP) Connect(host string, port int) {
-    http.conn, http.Error = net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+    address := fmt.Sprintf("%s:%d", host, port)
+    fmt.Println("DEBUG:", address)
+    http.conn, http.Error = net.Dial("tcp", address)
     if http.Error != nil {
         fmt.Println("ERROR: ", http.Error.Error())
         return
@@ -59,7 +61,7 @@ func (http *HTTP) Connect(host string, port int) {
 }
 
 func (http *HTTP) AddHeader(header string) {
-    http.header += header + "\r\n\r\n"
+    http.header += header + "\r\n"
 }
 
 /* TODO: get http header */
@@ -192,12 +194,14 @@ func (http *HTTP) WriteToFile(fileName string, range_from int) {
 func (http *HTTP) Get(url string, range_from, range_to int) {
     http.offset = range_from
     http.AddHeader(fmt.Sprintf("GET %s HTTP/1.0", url))
+    http.AddHeader(fmt.Sprintf("Host: %s", http.host))
     if range_to == 0 {
         http.AddHeader(fmt.Sprintf("Range: bytes=1-"))
     } else {
         http.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", range_from, range_to))
     }
     http.AddHeader(fmt.Sprintf("User-Agent: %s", http.UserAgent))
+    http.AddHeader("")
     if http.Debug {
         fmt.Println("DEBUG:", http.header)
     }
@@ -210,7 +214,8 @@ func (http *HTTP) Get(url string, range_from, range_to int) {
 func (http *HTTP) IsAcceptRange() bool {
     ret := false
 
-    if strings.Contains(http.headerResponse, "Accept-Ranges") {
+    if strings.Contains(http.headerResponse, "Content-Range") || 
+        strings.Contains(http.headerResponse, "Accept-Ranges"){
         ret = true
     }
 
