@@ -48,7 +48,7 @@ func (h *HTTP) Connect(host string, port int) {
 
 func (h *HTTP) Response() {}
 
-func (h *HTTP) WriteToFile(range_from, range_to int, outputFileName string) {
+func (h *HTTP) WriteToFile(range_from, range_to int, f *os.File) {
     client := &http.Client{}
     req, _ := http.NewRequest("GET", h.url, nil)
     req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", range_from, range_to))
@@ -60,11 +60,8 @@ func (h *HTTP) WriteToFile(range_from, range_to int, outputFileName string) {
     if err != nil { panic(err) }
     defer resp.Body.Close()
     data, err := ioutil.ReadAll(resp.Body)
-    chunkName := fmt.Sprintf("%s.part.%d", outputFileName, range_from)
-    f, err := os.Create(chunkName)
-    if err != nil { panic(err) }
-    defer f.Close()
-    f.Write(data)
+    /* TODO: it does not need to write to tmp chunk file */
+    f.WriteAt(data, int64(range_from))
     if h.Callback != nil {
         h.Callback(len(data))
     }
