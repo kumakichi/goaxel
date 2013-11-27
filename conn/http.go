@@ -53,6 +53,7 @@ func (h *HTTP) WriteToFile(range_from, range_to int, f *os.File) {
     client := &http.Client{}
     req, _ := http.NewRequest("GET", h.url, nil)
     req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", range_from, range_to))
+    req.Header.Set("User-Agent", h.UserAgent)
     if h.Debug {
         fmt.Println("DEBUG:", req.Header)
     }
@@ -90,8 +91,5 @@ func (h *HTTP) IsAcceptRange() bool {
 func (h *HTTP) GetContentLength() int {
     ret := 0
     ret, h.Error = strconv.Atoi(h.resp.Header.Get("Content-Length"))
-    if h.Error != nil {
-        fmt.Println("ERROR:", h.Error.Error())
-    }
     return ret
 }
