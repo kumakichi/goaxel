@@ -28,6 +28,7 @@ import (
 )
 
 type HTTP struct {
+    Protocol    string
     host        string
     port        int
     user        string
@@ -68,7 +69,10 @@ func (h *HTTP) WriteToFile(range_from, range_to int, f *os.File) {
 }
 
 func (h *HTTP) Get(url string) {
-    h.url = fmt.Sprintf("http://%s:%d%s", h.host, h.port, url)
+    if h.Protocol == "https" && h.port == 80 {
+        h.port = 443
+    }
+    h.url = fmt.Sprintf("%s://%s:%d%s", h.Protocol, h.host, h.port, url)
     h.resp, h.Error = http.Head(h.url)
     if h.Error != nil {
         fmt.Println("ERROR:", h.Error.Error())
@@ -85,6 +89,9 @@ func (h *HTTP) IsAcceptRange() bool {
 
 func (h *HTTP) GetContentLength() int {
     ret := 0
-    ret, _ = strconv.Atoi(h.resp.Header.Get("Content-Length"))
+    ret, h.Error = strconv.Atoi(h.resp.Header.Get("Content-Length"))
+    if h.Error != nil {
+        fmt.Println("ERROR:", h.Error.Error())
+    }
     return ret
 }
