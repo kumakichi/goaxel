@@ -18,10 +18,6 @@
 
 package conn
 
-import (
-    "os"
-)
-
 type CONN struct {
     Protocol    string
     Host        string
@@ -43,7 +39,7 @@ func (conn *CONN) GetContentLength() (int, bool) {
         conn.http.Debug = conn.Debug
         conn.http.UserAgent = conn.UserAgent
         conn.http.Connect(conn.Host, conn.Port)
-        conn.http.Get(conn.Path, 1, 0)
+        conn.http.Get(conn.Path)
         conn.http.Response()
         length = conn.http.GetContentLength()
         accept = conn.http.IsAcceptRange()
@@ -52,13 +48,13 @@ func (conn *CONN) GetContentLength() (int, bool) {
     return length, accept
 }
 
-func (conn *CONN) Get(f *os.File, range_from, range_to int) {
+func (conn *CONN) Get(range_from, range_to int, outputFileName string) {
     if conn.Protocol == "http" {
         conn.http.Debug = conn.Debug
         conn.http.UserAgent = conn.UserAgent
         conn.http.Callback = conn.Callback
         conn.http.Connect(conn.Host, conn.Port)
-        conn.http.Get(conn.Path, range_from, range_to)
-        conn.http.WriteToFile(f, range_from, range_to)
+        conn.http.Get(conn.Path)
+        conn.http.WriteToFile(range_from, range_to, outputFileName)
     }
 }

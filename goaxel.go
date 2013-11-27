@@ -26,6 +26,9 @@ import (
     "strings"
     "strconv"
     "path"
+    "path/filepath"
+    "io"
+    "bufio"
     "github.com/xiangzhai/goaxel/conn"
 )
 
@@ -48,6 +51,7 @@ var (
     contentLength   int
     acceptRange     bool
     received        int = 0
+    chunkFileName   []string
     ch              chan int
 )
 
@@ -65,7 +69,7 @@ func connCallback(n int) {
 
 func startRoutine(range_from, range_to int) {
     conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, Path: strPath, Debug: debug, Callback: connCallback}
-    conn.Get(outputFile, range_from, range_to)
+    conn.Get(range_from, range_to, outputFileName)
 }
 
 /* TODO: parse url to get host, port, path, basename */
@@ -96,21 +100,52 @@ func parseUrl(strUrl string) {
 }
 
 func splitWork() {
-    range_length := contentLength / int(connNum)
+    offset := contentLength / int(connNum)
+    remainder := contentLength % (offset * int(connNum))
+    start := 0
     ch = make(chan int, connNum)
     for i := 0; i < int(connNum); i++ {
-        if i != int(connNum) - 1 {
-            fmt.Printf("DEBUG: range %d - %d\n", 
-                1 + i * range_length, range_length * (1 + i))
-            go startRoutine(1 + i * range_length, range_length * (1 + i))
-        } else {
-            fmt.Printf("DEBUG: range %d - %d\n", 
-                1 + i * range_length, contentLength)
-            go startRoutine(1 + i * range_length, contentLength)
+        go startRoutine(start, start + offset - 1)
+        start += offset
+        if (i == int(connNum) - 2) {
+            offset += remainder
         }
     }
     for i := 0; i < int(connNum); i++ {
         fmt.Println("received:", <-ch)
+    }
+}
+
+func writeChunk(path string) {
+    err := filepath.Walk(path, func(path string, f os.FileInfo, err error) error {
+        if f == nil {return err}
+        if f.IsDir() {return nil}
+        if strings.HasPrefix(path, fmt.Sprintf("%s.part.", outputFileName)) {
+            chunkFileName = append(chunkFileName, path)
+        }
+        return nil
+    })
+    if err != nil {
+        fmt.Printf("ERROR:", err.Error())
+        return
+    }
+    for _, v := range chunkFileName {
+        chunkFile, _  := os.Open(v)
+        defer chunkFile.Close()
+        chunkReader := bufio.NewReader(chunkFile)
+        chunkWriter := bufio.NewWriter(outputFile)
+
+        buf := make([]byte, 1024)
+        for {
+            n, err := chunkReader.Read(buf)
+            if err != nil && err != io.EOF { panic(err) }
+            if n == 0 { break }
+            if _, err := chunkWriter.Write(buf[:n]); err != nil {
+                panic(err)
+            }
+        }
+        if err := chunkWriter.Flush(); err != nil { panic(err) }
+        os.Remove(v)
     }
 }
 
@@ -142,6 +177,7 @@ func main() {
     }
 
     outputFile, _ = os.Create(outputFileName)
+    defer outputFile.Close()
 
     if acceptRange && connNum != 1 {
         splitWork()
@@ -151,4 +187,5 @@ func main() {
         go startRoutine(1, 0)
         fmt.Println("received:", <-ch)
     }
+    writeChunk(".")
 }
