@@ -127,10 +127,8 @@ func main() {
 
     flag.Parse()
 
-    for i := 1; i < len(os.Args); i++ {
-        if !strings.HasPrefix(os.Args[i], "-") {
-            urls = append(urls, os.Args[i])
-        }
+    for i := 0; i < len(flag.Args()); i++ {
+        urls = append(urls, flag.Args()[i])
     }
     if len(urls) == 0 {
         fmt.Println("Invalid urls")
