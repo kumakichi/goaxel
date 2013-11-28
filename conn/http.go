@@ -65,8 +65,8 @@ func (http *HTTP) AddHeader(header string) {
 
 /* TODO: get http header */
 func (http *HTTP) Response() {
+    data := make([]byte, 1)
     for i := 0; ; {
-        data := make([]byte, 1)
         n, err := http.conn.Read(data)
         if err != nil {
             if err != io.EOF {
@@ -97,6 +97,7 @@ func (http *HTTP) Response() {
 func (http *HTTP) WriteToFile(f *os.File) {
     defer http.conn.Close()
     resp := ""
+    data := make([]byte, 1)
     for i := 0; ; {
         data := make([]byte, 1)
         n, err := http.conn.Read(data)
@@ -124,8 +125,8 @@ func (http *HTTP) WriteToFile(f *os.File) {
         fmt.Println("DEBUG:", resp)
     }
 
+    data = make([]byte, buffer_size)
     for {
-        data := make([]byte, buffer_size)
         n, err := http.conn.Read(data)
         if err != nil {
             return
