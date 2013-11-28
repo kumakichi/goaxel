@@ -69,7 +69,7 @@ func (h *HTTP) WriteToFile(f *os.File) {
     for {
         lr := io.LimitReader(resp.Body, buffer_size)
         data := make([]byte, buffer_size)
-        n, err := io.ReadFull(lr, data)
+        n, err := io.ReadAtLeast(lr, data, int(buffer_size))
         if err != nil { return }
         f.WriteAt(data, int64(h.offset))
         if h.Callback != nil {
