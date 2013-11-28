@@ -37,4 +37,28 @@ func main() {
     }
     fmt.Println("path:", u.Path)
     fmt.Println("base:", path.Base(u.Path))
+
+    fmt.Println("")
+
+    u, err = url.Parse("ftp://anonymous:123456@localhost/1/a/test.png")
+    //u, err = url.Parse("ftp://localhost/1/test.png")
+    if err != nil {
+        fmt.Println("ERROR:", err.Error())
+    }
+    fmt.Println("protocol:", u.Scheme)
+    fmt.Println("host:", u.Host)
+    if !strings.Contains(u.Host, ":") {
+        fmt.Println("port: 21")
+    }
+    userinfo := u.User
+    username := ""
+    passwd := ""
+    if userinfo != nil {
+        username = userinfo.Username()
+        passwd, _ = userinfo.Password()
+    }
+    fmt.Println("userinfo:", username, passwd)
+    fmt.Println("path:", u.Path)
+    fmt.Println("dir:", path.Dir(u.Path))
+    fmt.Println("base:", path.Base(u.Path))
 }

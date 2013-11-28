@@ -21,7 +21,6 @@ package main
 import (
     "fmt"
     "os"
-    "sync"
     "github.com/xiangzhai/goaxel/conn"
 )
 
@@ -33,7 +32,6 @@ var (
     file            *os.File
     contentLength   int = 0
     port            int = 21
-    wg              sync.WaitGroup
 )
 
 func ftp_conn(f *conn.FTP) bool {
@@ -53,7 +51,6 @@ func ftp_download(f *conn.FTP, path string) {
     f.Request("REST 0")
     f.Request("RETR " + path)
     f.WriteToFile(conn, file)
-    wg.Done()
     return
 }
 
@@ -67,10 +64,9 @@ func main() {
     if ftp_conn(f) == false {
         return
     }
+    f.Cwd("/")
     contentLength = f.Size(outputFileName)
-    wg.Add(1)
     port = f.Pasv()
-    go ftp_download(f, outputFileName)
-    wg.Wait()
+    ftp_download(f, outputFileName)
     f.Quit()
 }

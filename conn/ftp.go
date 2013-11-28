@@ -13,19 +13,20 @@ import (
 )
 
 type FTP struct {
-	host    string
-	port    int
-	user    string
-	passwd  string
-	pasv    int
-	cmd     string
-	Code    int
-	Message string
-	Debug   bool
-	stream  []byte
-	conn    net.Conn
-	Error   error
-    offset  int
+	host        string
+	port        int
+	user        string
+	passwd      string
+	pasv        int
+	cmd         string
+	Code        int
+	Message     string
+	Debug       bool
+	stream      []byte
+	conn        net.Conn
+	Error       error
+    offset      int
+    Callback    func(int)
 }
 
 func (ftp *FTP) debugInfo(s string) {
@@ -61,13 +62,16 @@ func (ftp *FTP) Login(user, passwd string) {
 
 func (ftp *FTP) WriteToFile(conn net.Conn, f *os.File) {
     defer conn.Close()
-    data := make([]byte, 1024)
+    data := make([]byte, 102400)
 	for {
         n, err := conn.Read(data)
         if err != nil {
             if err != io.EOF { panic(err) }
         }
         f.WriteAt(data[:n], int64(ftp.offset))
+        if ftp.Callback != nil {
+            ftp.Callback(ftp.offset)
+        }
         ftp.offset += n
         if err == io.EOF { return }
     }

@@ -45,10 +45,12 @@ var (
     protocol        string
     host            string
     port            int
+    userName        string  = ""
+    passwd          string  = ""
     strPath         string
     contentLength   int
     acceptRange     bool
-    received        int = 0
+    received        int     = 0
     chunkFileName   []string
     wg              sync.WaitGroup
 )
@@ -67,8 +69,8 @@ func connCallback(n int) {
 
 func startRoutine(range_from, range_to int) {
     defer wg.Done()
-    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, Path: strPath, Debug: debug, Callback: connCallback}
-    conn.Get(range_from, range_to, outputFile)
+    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, UserName: userName, Passwd: passwd, Path: strPath, Debug: debug, Callback: connCallback}
+    conn.Get(range_from, range_to, outputFile, outputFileName)
 }
 
 /* TODO: parse url to get host, port, path, basename */
@@ -81,17 +83,27 @@ func parseUrl(strUrl string) {
     protocol = u.Scheme
     host = u.Host
     port = 80
+    if protocol == "https" {
+        port = 443
+    } else if protocol == "ftp" {
+        port = 21
+    }
+    userinfo := u.User
+    if userinfo != nil {
+        userName = userinfo.Username()
+        passwd, _ = userinfo.Password()
+    }
     strPath = u.Path
     pos := strings.Index(host, ":")
     if pos != -1 {
         port, _ = strconv.Atoi(host[pos + 1:])
         host = host[0:pos]
     }
-    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, Path: strPath, Debug: debug}
+    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, UserName: userName, Passwd: passwd, Path: strPath, Debug: debug}
     if outputFileName == defaultOutputFileName && path.Base(strPath) != "/" {
         outputFileName = path.Base(strPath)
     }
-    contentLength, acceptRange = conn.GetContentLength()
+    contentLength, acceptRange = conn.GetContentLength(outputFileName)
     if debug {
         fmt.Println("DEBUG: output filename", outputFileName)
         fmt.Println("DEBUG: content length", contentLength)
