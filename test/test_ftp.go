@@ -21,28 +21,56 @@ package main
 import (
     "fmt"
     "os"
-    "github.com/xiangzhai/goftp"
+    "sync"
+    "github.com/xiangzhai/goaxel/conn"
 )
 
-func main() {
-    // new ftp
-    ftp := new(ftp.FTP)
-    // set debug, default false
-    ftp.Debug = true
-    // connect
-    ftp.Connect("localhost", 21)
-    // login
-    ftp.Login("anonymous", "")
-    // login failure
-    if ftp.Code == 530 {
-        fmt.Println("error: login failure")
-        os.Exit(-1)
+const (
+    outputFileName string = "test.png"
+)
+
+var (
+    file            *os.File
+    contentLength   int = 0
+    port            int = 21
+    wg              sync.WaitGroup
+)
+
+func ftp_conn(f *conn.FTP) bool {
+    f.Connect("localhost", 21)
+    f.Login("anonymous", "")
+    if f.Code == 530 {
+        fmt.Println("ERROR: login failure")
+        return false
     }
-    // pwd
-    ftp.Pwd()
-    fmt.Println("code:", ftp.Code, ", message:", ftp.Message)
-    ftp.Request("LS ")
-    fmt.Println("code:", ftp.Code, ", message:", ftp.Message)
-    // quit
-    ftp.Quit()
+    f.Request("TYPE I")
+    f.Cwd("/")
+    return true
+}
+
+func ftp_download(f *conn.FTP, path string) {
+    conn := f.NewConnect(port)
+    f.Request("REST 0")
+    f.Request("RETR " + path)
+    f.WriteToFile(conn, file)
+    wg.Done()
+    return
+}
+
+func main() {
+    file, _ = os.Create(outputFileName)
+    defer file.Close()
+    var f *conn.FTP
+
+    f = new(conn.FTP)
+    f.Debug = true
+    if ftp_conn(f) == false {
+        return
+    }
+    contentLength = f.Size(outputFileName)
+    wg.Add(1)
+    port = f.Pasv()
+    go ftp_download(f, outputFileName)
+    wg.Wait()
+    f.Quit()
 }
