@@ -65,14 +65,14 @@ func (http *HTTP) AddHeader(header string) {
 
 /* TODO: get http header */
 func (http *HTTP) Response() {
+    defer http.conn.Close()
     data := make([]byte, 1)
     for i := 0; ; {
         n, err := http.conn.Read(data)
         if err != nil {
             if err != io.EOF {
-                fmt.Println("ERROR:", err.Error())
-                defer http.conn.Close()
                 http.Error = err
+                fmt.Println("ERROR:", http.Error.Error())
                 return
             }
         }
@@ -103,9 +103,8 @@ func (http *HTTP) WriteToFile(f *os.File) {
         n, err := http.conn.Read(data)
         if err != nil {
             if err != io.EOF {
-                fmt.Println("ERROR:", err.Error())
-                defer http.conn.Close()
                 http.Error = err
+                fmt.Println("ERROR:", http.Error.Error())
                 return
             }
         }
@@ -129,13 +128,18 @@ func (http *HTTP) WriteToFile(f *os.File) {
     for {
         n, err := http.conn.Read(data)
         if err != nil {
-            return
+            if err != io.EOF {
+                http.Error = err
+                fmt.Println("ERROR:", http.Error.Error())
+                return
+            }
         }
         f.WriteAt(data[:n], int64(http.offset))
         if http.Callback != nil {
             http.Callback(n)
         }
         http.offset += n
+        if err == io.EOF { return }
     }
     return
 }
