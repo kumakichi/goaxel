@@ -111,6 +111,8 @@ func parseUrl(strUrl string) {
     }
     contentLength, acceptRange = conn.GetContentLength(outputFileName)
     bar = pb.New(contentLength)
+    bar.ShowSpeed = true
+    bar.Units = pb.U_BYTES
     if debug {
         fmt.Println("DEBUG: output filename", outputFileName)
         fmt.Println("DEBUG: content length", contentLength)
