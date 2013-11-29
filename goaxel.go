@@ -31,8 +31,8 @@ import (
     "bufio"
     "sync"
     "sort"
-    "time"
     "github.com/xiangzhai/goaxel/conn"
+    "github.com/cheggaaa/pb"
 )
 
 const (
@@ -56,10 +56,9 @@ var (
     contentLength   int
     acceptRange     bool
     received        int     = 0
-    rece_per_second int     = 0
     chunkFileIndex  []int
     wg              sync.WaitGroup
-    ticker          *time.Ticker
+    bar             *pb.ProgressBar
 )
 
 func init() {
@@ -71,7 +70,7 @@ func init() {
 
 func connCallback(n int) {
     received += n
-    rece_per_second += n
+    for i := 0; i < n; i++ { bar.Increment() }
 }
 
 func startRoutine(range_from, range_to int, old_range_from int, chunksize int) {
@@ -111,6 +110,7 @@ func parseUrl(strUrl string) {
         outputFileName = path.Base(strPath)
     }
     contentLength, acceptRange = conn.GetContentLength(outputFileName)
+    bar = pb.New(contentLength)
     if debug {
         fmt.Println("DEBUG: output filename", outputFileName)
         fmt.Println("DEBUG: content length", contentLength)
@@ -201,27 +201,6 @@ func writeChunk(path string) {
     }
 }
 
-func formatSpeed(speed int) (ret string) {
-    speed = speed / 1024
-    ret = fmt.Sprintf("%d Kb", speed)
-
-    if speed = speed / 1024; speed >= 1 {
-        ret = fmt.Sprintf("%d Mb", speed)
-    }
-
-    return
-}
-
-func tickerCallback() {
-    for _ = range ticker.C {
-        downSpeed := rece_per_second
-        fmt.Printf("Download speed %s per second, %s received, %d seconds left\n",
-            formatSpeed(downSpeed), formatSpeed(received),
-            (contentLength - received) / downSpeed)
-        rece_per_second = 0
-    }
-}
-
 func main() {
     if len(os.Args) == 1 {
         fmt.Println("Usage: goaxel [options] url1 [url2] [url...]")
@@ -258,9 +237,7 @@ func main() {
         fmt.Println("It does not accept range, use signal connection instead")
         go startRoutine(0, 0, 0, 0)
     }
-    ticker = time.NewTicker(time.Millisecond * 1000)
-    go tickerCallback()
+    bar.Start()
     wg.Wait()
-    ticker.Stop()
     writeChunk(".")
 }
