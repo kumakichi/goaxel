@@ -31,23 +31,10 @@ const (
 var (
     file            *os.File
     contentLength   int = 0
-    port            int = 21
 )
 
-func ftp_conn(f *conn.FTP) bool {
-    f.Connect("localhost", 21)
-    f.Login("anonymous", "")
-    if f.Code == 530 {
-        fmt.Println("ERROR: login failure")
-        return false
-    }
-    f.Request("TYPE I")
-    f.Cwd("/")
-    return true
-}
-
 func ftp_download(f *conn.FTP, path string) {
-    conn := f.NewConnect(port)
+    conn := f.NewConnect()
     f.Request("REST 0")
     f.Request("RETR " + path)
     f.WriteToFile(conn, file)
@@ -57,16 +44,20 @@ func ftp_download(f *conn.FTP, path string) {
 func main() {
     file, _ = os.Create(outputFileName)
     defer file.Close()
-    var f *conn.FTP
 
-    f = new(conn.FTP)
+    f := new(conn.FTP)
+    defer f.Quit()
     f.Debug = true
-    if ftp_conn(f) == false {
+    f.Connect("localhost", 21)
+    f.Login("anonymous", "")
+    if f.Code == 530 {
+        fmt.Println("ERROR: login failure")
         return
     }
+    f.Request("TYPE I")
     f.Cwd("/")
     contentLength = f.Size(outputFileName)
-    port = f.Pasv()
+    f.Pasv()
     ftp_download(f, outputFileName)
-    f.Quit()
+    return
 }

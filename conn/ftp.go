@@ -35,13 +35,13 @@ func (ftp *FTP) debugInfo(s string) {
 	}
 }
 
-func (ftp *FTP) NewConnect(port int) net.Conn {
-    conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ftp.host, port))
+func (ftp *FTP) NewConnect() net.Conn {
+    conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ftp.host, ftp.pasv))
     if err != nil {
         ftp.Error = err
         fmt.Println("ERROR:", ftp.Error.Error())
     }
-    ftp.cmd = fmt.Sprintf("NewConnect:%d", port)
+    ftp.cmd = fmt.Sprintf("NewConnect:%d", ftp.pasv)
     return conn
 }
 
@@ -103,9 +103,8 @@ func (ftp *FTP) Request(cmd string) {
 	}
 }
 
-func (ftp *FTP) Pasv() int {
+func (ftp *FTP) Pasv() {
 	ftp.Request("PASV")
-    return ftp.pasv
 }
 
 func (ftp *FTP) Pwd() {

@@ -89,8 +89,8 @@ func (conn *CONN) Get(range_from, range_to int, f *os.File, fileName string) {
     } else if conn.Protocol == "ftp" {
         conn.ftpConnect()
         conn.ftp.Callback = conn.Callback
-        newPort := conn.ftp.Pasv()
-        newConn := conn.ftp.NewConnect(newPort)
+        conn.ftp.Pasv()
+        newConn := conn.ftp.NewConnect()
         conn.ftp.Request(fmt.Sprintf("REST %d", range_from))
         conn.ftp.Request("RETR " + fileName)
         conn.ftp.WriteToFile(newConn, f)
