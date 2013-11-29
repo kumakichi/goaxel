@@ -59,7 +59,9 @@ func (ftp *FTP) NewConnect() net.Conn {
         ftp.Error = err
         fmt.Println("ERROR:", ftp.Error.Error())
     }
-    ftp.cmd = fmt.Sprintf("NewConnect:%d", ftp.pasv)
+    if ftp.Debug {
+        ftp.cmd = fmt.Sprintf("NewConnect:%d", ftp.pasv)
+    }
     return conn
 }
 
@@ -83,11 +85,15 @@ func (ftp *FTP) Login(user, passwd string) {
 	ftp.passwd = passwd
 }
 
-func (ftp *FTP) WriteToFile(conn net.Conn, f *os.File, offset int) {
+func (ftp *FTP) WriteToFile(conn net.Conn, fileName string, old_range_from, offset int) {
     ftp.offset = offset
     defer conn.Close()
     data := make([]byte, 102400)
-	for {
+    chunkName := fmt.Sprintf("%s.part.%d", fileName, old_range_from)
+    f, err := os.OpenFile(chunkName, os.O_CREATE | os.O_WRONLY, 0664)
+    defer f.Close()
+    if err != nil { panic(err) }
+    for {
         n, err := conn.Read(data)
         if err != nil {
             if err != io.EOF { panic(err) }

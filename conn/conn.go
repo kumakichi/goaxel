@@ -20,7 +20,6 @@ package conn
 
 import (
     "fmt"
-    "os"
     "path"
 )
 
@@ -80,12 +79,12 @@ func (conn *CONN) GetContentLength(fileName string) (length int, accept bool) {
     return
 }
 
-func (conn *CONN) Get(range_from, range_to int, f *os.File, fileName string) {
+func (conn *CONN) Get(range_from, range_to int, fileName string, old_range_from int, chunksize int) {
     if conn.Protocol == "http" || conn.Protocol == "https" {
         if conn.httpConnect() == false { return }
         conn.http.Callback = conn.Callback
         conn.http.Get(conn.Path, range_from, range_to)
-        conn.http.WriteToFile(f)
+        conn.http.WriteToFile(fileName, old_range_from, chunksize)
     } else if conn.Protocol == "ftp" {
         if conn.ftpConnect() == false { return }
         conn.ftp.Callback = conn.Callback
@@ -93,6 +92,6 @@ func (conn *CONN) Get(range_from, range_to int, f *os.File, fileName string) {
         newConn := conn.ftp.NewConnect()
         conn.ftp.Request(fmt.Sprintf("REST %d", range_from))
         conn.ftp.Request("RETR " + fileName)
-        conn.ftp.WriteToFile(newConn, f, range_from)
+        conn.ftp.WriteToFile(newConn, fileName, range_from, chunksize)
     }
 }

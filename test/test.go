@@ -39,12 +39,14 @@ func main() {
         }
     }
     fmt.Println(tmp)
-    f1, err := os.Create("test1.txt")
+    f1, err := os.OpenFile("test1.txt", os.O_CREATE | os.O_WRONLY, 0664)
     if err != nil {
         fmt.Println("ERROR:", err.Error())
         return
     }
     f1.Write(data)
+    f1, _ = os.OpenFile("test1.txt", os.O_CREATE | os.O_WRONLY, 0664)
+    f1.WriteAt([]byte("end"), 1024)
     f2, err := os.Create("test2.txt")
     if err != nil {
         fmt.Println("ERROR:", err.Error())

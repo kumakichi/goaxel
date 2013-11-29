@@ -31,13 +31,19 @@ const (
 var (
     file            *os.File
     contentLength   int = 0
+    received        int = 0
 )
+
+func callBack(n int) {
+    received += n
+    fmt.Println("received:", received)
+}
 
 func ftp_download(f *conn.FTP, path string) {
     conn := f.NewConnect()
     f.Request("REST 0")
     f.Request("RETR " + path)
-    f.WriteToFile(conn, file)
+    f.WriteToFile(conn, file, 0)
     return
 }
 
@@ -48,6 +54,7 @@ func main() {
     f := new(conn.FTP)
     defer f.Quit()
     f.Debug = true
+    f.Callback = callBack
     f.Connect("localhost", 21)
     f.Login("anonymous", "")
     if f.Code == 530 {

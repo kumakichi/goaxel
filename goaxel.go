@@ -26,6 +26,9 @@ import (
     "strings"
     "strconv"
     "path"
+    "path/filepath"
+    "io"
+    "bufio"
     "sync"
     "github.com/xiangzhai/goaxel/conn"
 )
@@ -67,10 +70,10 @@ func connCallback(n int) {
     fmt.Println("received:", received)
 }
 
-func startRoutine(range_from, range_to int) {
+func startRoutine(range_from, range_to int, old_range_from int, chunksize int) {
     defer wg.Done()
     conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, UserName: userName, Passwd: passwd, Path: strPath, Debug: debug, Callback: connCallback}
-    conn.Get(range_from, range_to, outputFile, outputFileName)
+    conn.Get(range_from, range_to, outputFileName, old_range_from, chunksize)
 }
 
 /* TODO: parse url to get host, port, path, basename */
@@ -110,7 +113,42 @@ func parseUrl(strUrl string) {
     }
 }
 
+func travelChunk(path string) {
+    err := filepath.Walk(path, func(path string, f os.FileInfo, err error) error {
+        if f == nil {return err}
+        if f.IsDir() {return nil}
+        if strings.HasPrefix(path, fmt.Sprintf("%s.part.", outputFileName)) {
+            chunkFileName = append(chunkFileName, path)
+        }
+        return nil
+    })
+    if err != nil {
+        fmt.Printf("ERROR:", err.Error())
+        return
+    }
+}
+
+func fileSize(fileName string) (ret int64) {
+    ret = 0
+    f, err := os.Open(fileName)
+    defer f.Close()
+    if err != nil {
+        panic(err)
+        return
+    }
+    fi, _ := f.Stat()
+    ret = fi.Size()
+    return
+}
+
 func splitWork() {
+    travelChunk(".")
+    hasChunk := false
+    if len(chunkFileName) != 0 {
+        fmt.Println("Found chunk files, continue downloading...")
+        hasChunk    = true
+        connNum     = uint(len(chunkFileName))
+    }
     offset := contentLength / int(connNum)
     remainder := 0
     if offset != 0 {
@@ -118,11 +156,39 @@ func splitWork() {
     }
     start := 0
     for i := 0; i < int(connNum); i++ {
-        go startRoutine(start, start + offset - 1)
+        chunkFileSize := 0
+        if hasChunk {
+            chunkFileSize = int(fileSize(chunkFileName[i]))
+        }
+        go startRoutine(start + chunkFileSize, start + offset - 1, start, chunkFileSize)
         start += offset
         if (i == int(connNum) - 2) {
             offset += remainder
         }
+    }
+}
+
+func writeChunk(path string) {
+    if len(chunkFileName) == 0 {
+        travelChunk(".")
+    }
+    for _, v := range chunkFileName {
+        chunkFile, _  := os.Open(v)
+        defer chunkFile.Close()
+        chunkReader := bufio.NewReader(chunkFile)
+        chunkWriter := bufio.NewWriter(outputFile)
+
+        buf := make([]byte, 1024)
+        for {
+            n, err := chunkReader.Read(buf)
+            if err != nil && err != io.EOF { panic(err) }
+            if n == 0 { break }
+            if _, err := chunkWriter.Write(buf[:n]); err != nil {
+                panic(err)
+            }
+        }
+        if err := chunkWriter.Flush(); err != nil { panic(err) }
+        os.Remove(v)
     }
 }
 
@@ -160,7 +226,8 @@ func main() {
     } else {
         wg.Add(1)
         fmt.Println("It does not accept range, use signal connection instead")
-        go startRoutine(0, 0)
+        go startRoutine(0, 0, 0, 0)
     }
     wg.Wait()
+    writeChunk(".")
 }

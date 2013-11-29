@@ -95,7 +95,8 @@ func (http *HTTP) Response() {
     http.conn.Close()
 }
 
-func (http *HTTP) WriteToFile(f *os.File) {
+func (http *HTTP) WriteToFile(outputFileName string, old_range_from int, chunkSize int) {
+    http.offset = chunkSize
     defer http.conn.Close()
     resp := ""
     data := make([]byte, 1)
@@ -124,7 +125,10 @@ func (http *HTTP) WriteToFile(f *os.File) {
     if http.Debug {
         fmt.Println("DEBUG:", resp)
     }
-
+    chunkName := fmt.Sprintf("%s.part.%d", outputFileName, old_range_from)
+    f, err := os.OpenFile(chunkName, os.O_CREATE | os.O_WRONLY, 0664)
+    defer f.Close()
+    if err != nil { panic(err) }
     data = make([]byte, buffer_size)
     for {
         n, err := http.conn.Read(data)
@@ -146,11 +150,10 @@ func (http *HTTP) WriteToFile(f *os.File) {
 }
 
 func (http *HTTP) Get(url string, range_from, range_to int) {
-    http.offset = range_from
     http.AddHeader(fmt.Sprintf("GET %s HTTP/1.0", url))
     http.AddHeader(fmt.Sprintf("Host: %s", http.host))
     if range_to == 0 {
-        http.AddHeader(fmt.Sprintf("Range: bytes=1-"))
+        http.AddHeader(fmt.Sprintf("Range: bytes=0-"))
     } else {
         http.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", range_from, range_to))
     }
