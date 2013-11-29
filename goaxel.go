@@ -169,6 +169,7 @@ func splitWork() {
         chunkFileSize := 0
         if hasChunk {
             chunkFileSize = int(fileSize(fmt.Sprintf("%s.part.%d", outputFileName, chunkFileIndex[i])))
+            bar.Add(chunkFileSize)
         }
         go startRoutine(start + chunkFileSize, start + offset - 1, start, chunkFileSize)
         start += offset
