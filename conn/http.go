@@ -48,15 +48,16 @@ const (
     buffer_size int = 102400
 )
 
-func (http *HTTP) Connect(host string, port int) {
+func (http *HTTP) Connect(host string, port int) bool {
     address := fmt.Sprintf("%s:%d", host, port)
     http.conn, http.Error = net.Dial("tcp", address)
     if http.Error != nil {
         fmt.Println("ERROR: ", http.Error.Error())
-        return
+        return false
     }
     http.host = host
     http.port = port
+    return true
 }
 
 func (http *HTTP) AddHeader(header string) {

@@ -38,27 +38,27 @@ type CONN struct {
     ftp         FTP
 }
 
-func (conn *CONN) httpConnect() {
+func (conn *CONN) httpConnect() bool {
     conn.http.Debug = conn.Debug
     conn.http.Protocol = conn.Protocol
     conn.http.UserAgent = conn.UserAgent
-    conn.http.Connect(conn.Host, conn.Port)
+    return conn.http.Connect(conn.Host, conn.Port)
 }
 
-func (conn *CONN) ftpConnect() {
+func (conn *CONN) ftpConnect() bool {
     conn.ftp.Debug = conn.Debug
-    conn.ftp.Connect(conn.Host, conn.Port)
+    if conn.ftp.Connect(conn.Host, conn.Port) == false { return false }
     if conn.UserName == "" { conn.UserName = "anonymous" }
     conn.ftp.Login(conn.UserName, conn.Passwd)
     if conn.ftp.Code == 530 {
         fmt.Println("ERROR: login failure")
-        return
+        return false
     }
     conn.ftp.Request("TYPE I")
     dir := path.Dir(conn.Path)
     if dir != "/" { dir += "/" }
     conn.ftp.Cwd(dir)
-    return
+    return true
 }
 
 func (conn *CONN) GetContentLength(fileName string) (length int, accept bool) {
@@ -66,13 +66,13 @@ func (conn *CONN) GetContentLength(fileName string) (length int, accept bool) {
     accept = false
 
     if conn.Protocol == "http" || conn.Protocol == "https" {
-        conn.httpConnect()
+        if conn.httpConnect() == false { return }
         conn.http.Get(conn.Path, 1, 0)
         conn.http.Response()
         length = conn.http.GetContentLength()
         accept = conn.http.IsAcceptRange()
     } else if conn.Protocol == "ftp" {
-        conn.ftpConnect()
+        if conn.ftpConnect() == false { return }
         length = conn.ftp.Size(fileName)
         accept = true
     }
@@ -82,17 +82,17 @@ func (conn *CONN) GetContentLength(fileName string) (length int, accept bool) {
 
 func (conn *CONN) Get(range_from, range_to int, f *os.File, fileName string) {
     if conn.Protocol == "http" || conn.Protocol == "https" {
-        conn.httpConnect()
+        if conn.httpConnect() == false { return }
         conn.http.Callback = conn.Callback
         conn.http.Get(conn.Path, range_from, range_to)
         conn.http.WriteToFile(f)
     } else if conn.Protocol == "ftp" {
-        conn.ftpConnect()
+        if conn.ftpConnect() == false { return }
         conn.ftp.Callback = conn.Callback
         conn.ftp.Pasv()
         newConn := conn.ftp.NewConnect()
         conn.ftp.Request(fmt.Sprintf("REST %d", range_from))
         conn.ftp.Request("RETR " + fileName)
-        conn.ftp.WriteToFile(newConn, f)
+        conn.ftp.WriteToFile(newConn, f, range_from)
     }
 }

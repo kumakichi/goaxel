@@ -112,7 +112,10 @@ func parseUrl(strUrl string) {
 
 func splitWork() {
     offset := contentLength / int(connNum)
-    remainder := contentLength % (offset * int(connNum))
+    remainder := 0
+    if offset != 0 {
+        remainder = contentLength % (offset * int(connNum))
+    }
     start := 0
     for i := 0; i < int(connNum); i++ {
         go startRoutine(start, start + offset - 1)

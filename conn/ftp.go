@@ -45,12 +45,17 @@ func (ftp *FTP) NewConnect() net.Conn {
     return conn
 }
 
-func (ftp *FTP) Connect(host string, port int) {
+func (ftp *FTP) Connect(host string, port int) bool {
 	addr := fmt.Sprintf("%s:%d", host, port)
 	ftp.conn, ftp.Error = net.Dial("tcp", addr)
-	ftp.Response()
+	if ftp.Error != nil {
+        fmt.Println("ERROR:", ftp.Error.Error())
+        return false
+    }
+    ftp.Response()
 	ftp.host = host
 	ftp.port = port
+    return true
 }
 
 func (ftp *FTP) Login(user, passwd string) {
@@ -60,7 +65,8 @@ func (ftp *FTP) Login(user, passwd string) {
 	ftp.passwd = passwd
 }
 
-func (ftp *FTP) WriteToFile(conn net.Conn, f *os.File) {
+func (ftp *FTP) WriteToFile(conn net.Conn, f *os.File, offset int) {
+    ftp.offset = offset
     defer conn.Close()
     data := make([]byte, 102400)
 	for {
@@ -91,7 +97,8 @@ func (ftp *FTP) Response() (code int, message string) {
 }
 
 func (ftp *FTP) Request(cmd string) {
-	ftp.conn.Write([]byte(cmd + "\r\n"))
+	if ftp.conn == nil { return }
+    ftp.conn.Write([]byte(cmd + "\r\n"))
 	ftp.cmd = cmd
 	ftp.Code, ftp.Message = ftp.Response()
 	if cmd == "PASV" {
