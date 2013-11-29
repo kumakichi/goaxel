@@ -31,6 +31,7 @@ import (
     "bufio"
     "sync"
     "sort"
+    "time"
     "github.com/xiangzhai/goaxel/conn"
 )
 
@@ -55,8 +56,10 @@ var (
     contentLength   int
     acceptRange     bool
     received        int     = 0
+    rece_per_second int     = 0
     chunkFileIndex  []int
     wg              sync.WaitGroup
+    ticker          *time.Ticker
 )
 
 func init() {
@@ -68,7 +71,7 @@ func init() {
 
 func connCallback(n int) {
     received += n
-    fmt.Println("received:", received)
+    rece_per_second += n
 }
 
 func startRoutine(range_from, range_to int, old_range_from int, chunksize int) {
@@ -198,6 +201,27 @@ func writeChunk(path string) {
     }
 }
 
+func formatSpeed(speed int) (ret string) {
+    speed = speed / 1024
+    ret = fmt.Sprintf("%d Kb", speed)
+
+    if speed = speed / 1024; speed >= 1 {
+        ret = fmt.Sprintf("%d Mb", speed)
+    }
+
+    return
+}
+
+func tickerCallback() {
+    for _ = range ticker.C {
+        downSpeed := rece_per_second
+        fmt.Printf("Download speed %s per second, %s received, %d seconds left\n",
+            formatSpeed(downSpeed), formatSpeed(received),
+            (contentLength - received) / downSpeed)
+        rece_per_second = 0
+    }
+}
+
 func main() {
     if len(os.Args) == 1 {
         fmt.Println("Usage: goaxel [options] url1 [url2] [url...]")
@@ -234,6 +258,9 @@ func main() {
         fmt.Println("It does not accept range, use signal connection instead")
         go startRoutine(0, 0, 0, 0)
     }
+    ticker = time.NewTicker(time.Millisecond * 1000)
+    go tickerCallback()
     wg.Wait()
+    ticker.Stop()
     writeChunk(".")
 }
