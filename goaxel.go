@@ -55,7 +55,6 @@ var (
     strPath         string
     contentLength   int
     acceptRange     bool
-    received        int     = 0
     chunkFileIndex  []int
     wg              sync.WaitGroup
     bar             *pb.ProgressBar
@@ -69,8 +68,7 @@ func init() {
 }
 
 func connCallback(n int) {
-    received += n
-    for i := 0; i < n; i++ { bar.Increment() }
+    bar.Add(n)
 }
 
 func startRoutine(range_from, range_to int, old_range_from int, chunksize int) {
