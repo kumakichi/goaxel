@@ -26,6 +26,7 @@ TODO
 - [x] FTP protocol
 - [x] continue downloading from the point of interruption
 - [x] command progress bar
+- [x] mirror support
 - [ ] HTTPS protocol
 - [ ] BitTorrent protocol
 - [ ] eMule protocol

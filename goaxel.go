@@ -47,12 +47,6 @@ var (
     urls            []string
     outputFileName  string
     outputFile      *os.File
-    protocol        string
-    host            string
-    port            int
-    userName        string  = ""
-    passwd          string  = ""
-    strPath         string
     contentLength   int
     acceptRange     bool
     chunkFileIndex  []int
@@ -71,14 +65,25 @@ func connCallback(n int) {
     bar.Add(n)
 }
 
-func startRoutine(range_from, range_to int, old_range_from int, chunksize int) {
+func startRoutine(range_from, range_to int, old_range_from int, chunksize int,
+                  url string) {
     defer wg.Done()
-    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, UserName: userName, Passwd: passwd, Path: strPath, Debug: debug, Callback: connCallback}
+    protocol, host, port, strPath, userName, passwd := parseUrl(url)
+    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port,
+                       UserAgent: userAgent, UserName: userName,
+                       Passwd: passwd, Path: strPath, Debug: debug,
+                       Callback: connCallback}
     conn.Get(range_from, range_to, outputFileName, old_range_from, chunksize)
 }
 
 /* TODO: parse url to get host, port, path, basename */
-func parseUrl(strUrl string) {
+func parseUrl(strUrl string) (protocol string, host string, port int,
+                              strPath string, userName string, passwd string) {
+    protocol = ""
+    host = ""
+    port = 0
+    strPath = ""
+
     u, err := url.Parse(strUrl)
     if err != nil {
         fmt.Println("ERROR:", err.Error())
@@ -103,18 +108,14 @@ func parseUrl(strUrl string) {
         port, _ = strconv.Atoi(host[pos + 1:])
         host = host[0:pos]
     }
-    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port, UserAgent: userAgent, UserName: userName, Passwd: passwd, Path: strPath, Debug: debug}
+    conn := &conn.CONN{Protocol: protocol, Host: host, Port: port,
+                       UserAgent: userAgent, UserName: userName,
+                       Passwd: passwd, Path: strPath, Debug: debug}
     if outputFileName == defaultOutputFileName && path.Base(strPath) != "/" {
         outputFileName = path.Base(strPath)
     }
     contentLength, acceptRange = conn.GetContentLength(outputFileName)
-    bar = pb.New(contentLength)
-    bar.ShowSpeed = true
-    bar.Units = pb.U_BYTES
-    if debug {
-        fmt.Println("DEBUG: output filename", outputFileName)
-        fmt.Println("DEBUG: content length", contentLength)
-    }
+    return
 }
 
 func travelChunk(path string) {
@@ -166,10 +167,17 @@ func splitWork() {
     for i := 0; i < int(connNum); i++ {
         chunkFileSize := 0
         if hasChunk {
-            chunkFileSize = int(fileSize(fmt.Sprintf("%s.part.%d", outputFileName, chunkFileIndex[i])))
+            chunkFileSize = int(fileSize(fmt.Sprintf("%s.part.%d",
+                outputFileName, chunkFileIndex[i])))
             bar.Add(chunkFileSize)
         }
-        go startRoutine(start + chunkFileSize, start + offset - 1, start, chunkFileSize)
+        if i > len(urls) - 1 {
+            go startRoutine(start + chunkFileSize, start + offset - 1, start,
+                chunkFileSize, urls[len(urls) - 1])
+        } else {
+            go startRoutine(start + chunkFileSize, start + offset - 1, start,
+                chunkFileSize, urls[i])
+        }
         start += offset
         if (i == int(connNum) - 2) {
             offset += remainder
@@ -223,8 +231,17 @@ func main() {
         fmt.Println("Invalid urls")
         return
     }
-    if len(urls) == 1 {
-        parseUrl(urls[0])
+    /* TODO: mirror support */
+    for i := 0; i < len(urls); i++ {
+        parseUrl(urls[i])
+    }
+
+    bar = pb.New(contentLength)
+    bar.ShowSpeed = true
+    bar.Units = pb.U_BYTES
+    if debug {
+        fmt.Println("DEBUG: output filename", outputFileName)
+        fmt.Println("DEBUG: content length", contentLength)
     }
 
     outputFile, _ = os.Create(outputFileName)
@@ -236,7 +253,7 @@ func main() {
     } else {
         wg.Add(1)
         fmt.Println("It does not accept range, use signal connection instead")
-        go startRoutine(0, 0, 0, 0)
+        go startRoutine(0, 0, 0, 0, urls[0])
     }
     bar.Start()
     wg.Wait()
