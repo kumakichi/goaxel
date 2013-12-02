@@ -34,6 +34,7 @@ type CONN struct {
     Debug       bool
     Callback    func(int)
     http        HTTP
+    https       HTTPS
     ftp         FTP
 }
 
@@ -42,6 +43,13 @@ func (conn *CONN) httpConnect() bool {
     conn.http.Protocol = conn.Protocol
     conn.http.UserAgent = conn.UserAgent
     return conn.http.Connect(conn.Host, conn.Port)
+}
+
+func (conn *CONN) httpsConnect() bool {
+    conn.https.Debug = conn.Debug
+    conn.https.Protocol = conn.Protocol
+    conn.https.UserAgent = conn.UserAgent
+    return conn.https.Connect(conn.Host, conn.Port)
 }
 
 func (conn *CONN) ftpConnect() bool {
@@ -64,12 +72,18 @@ func (conn *CONN) GetContentLength(fileName string) (length int, accept bool) {
     length = 0
     accept = false
 
-    if conn.Protocol == "http" || conn.Protocol == "https" {
+    if conn.Protocol == "http" {
         if conn.httpConnect() == false { return }
         conn.http.Get(conn.Path, 1, 0)
         conn.http.Response()
         length = conn.http.GetContentLength()
         accept = conn.http.IsAcceptRange()
+    } else if conn.Protocol == "https" {
+        if conn.httpsConnect() == false { return }
+        conn.https.Get(conn.Path, 1, 0)
+        conn.https.Response()
+        length = conn.https.GetContentLength()
+        accept = conn.https.IsAcceptRange()
     } else if conn.Protocol == "ftp" {
         if conn.ftpConnect() == false { return }
         length = conn.ftp.Size(fileName)
@@ -80,11 +94,16 @@ func (conn *CONN) GetContentLength(fileName string) (length int, accept bool) {
 }
 
 func (conn *CONN) Get(range_from, range_to int, fileName string, old_range_from int, chunksize int) {
-    if conn.Protocol == "http" || conn.Protocol == "https" {
+    if conn.Protocol == "http" {
         if conn.httpConnect() == false { return }
         conn.http.Callback = conn.Callback
         conn.http.Get(conn.Path, range_from, range_to)
         conn.http.WriteToFile(fileName, old_range_from, chunksize)
+    } else if conn.Protocol == "https" {
+        if conn.httpsConnect() == false { return }
+        conn.https.Callback = conn.Callback
+        conn.https.Get(conn.Path, range_from, range_to)
+        conn.https.WriteToFile(fileName, old_range_from, chunksize)
     } else if conn.Protocol == "ftp" {
         if conn.ftpConnect() == false { return }
         conn.ftp.Callback = conn.Callback

@@ -6,7 +6,6 @@ install
 =======
 ```
 go get github.com/xiangzhai/goaxel 
-
 go get github.com/cheggaaa/pb
 ```
 
@@ -27,7 +26,7 @@ TODO
 - [x] continue downloading from the point of interruption
 - [x] command progress bar
 - [x] mirror support
-- [ ] HTTPS protocol
+- [x] HTTPS protocol
 - [ ] BitTorrent protocol
 - [ ] eMule protocol
 - [ ] MagNet protocol

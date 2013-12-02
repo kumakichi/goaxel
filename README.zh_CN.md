@@ -4,9 +4,10 @@ Goroutines 下载加速器
 
 安装 
 ====
+```
 go get github.com/xiangzhai/goaxel 
-
 go get github.com/cheggaaa/pb
+```
 
 使用 
 ====
@@ -25,7 +26,7 @@ TODO
 - [x] 断点续传
 - [x] 命令行下进度条
 - [x] 镜像支持
-- [ ] HTTPS协议支持
+- [x] HTTPS协议支持
 - [ ] BitTorrent协议支持
 - [ ] eMule协议支持
 - [ ] MagNet协议支持
