@@ -20,38 +20,16 @@ package main
 
 import (
     "fmt"
-    "net"
     "os"
+    "github.com/xiangzhai/goaxel/emule"
 )
 
 func main() {
-    println("Starting the server")
-
-    listener, err := net.Listen("tcp", "0.0.0.0:7111")
-    if err != nil {
-        println("error listening:", err.Error())
-        os.Exit(1)
-    }
-    defer listener.Close()
-
-    for {
-        conn, err := listener.Accept()
-        if err != nil {
-            println("Error accept:", err.Error())
-            return
-        }
-        go respConn(conn)
-    }
-}
-
-func respConn(conn net.Conn) {
-    fmt.Println("DEBUG:", conn.RemoteAddr())
-    buf := make([]byte, 1024)
-    n, err := conn.Read(buf)
-    if err != nil {
-        println("ERROR:", err.Error())
+    if len(os.Args) < 2 {
+        fmt.Println("Usage: test_server_met filePath")
         return
     }
-    fmt.Println("DEBUG:", buf[:n])
-    return
+    o := new(emule.ServerMet)
+    o.Debug = true
+    o.OpenFile(os.Args[1])
 }

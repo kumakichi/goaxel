@@ -44,8 +44,25 @@ func le32(num int32) {
     fmt.Println("DEBUG:", b)
 }
 
+func le16(num int32) {
+    b := make([]byte, 2)
+    binary.LittleEndian.PutUint16(b, uint16(num))
+    fmt.Println("DEBUG:", b)
+}
+
+func respConn(conn net.Conn) {
+    buf := make([]byte, 1024)
+    n, err := conn.Read(buf)
+    if err != nil {
+        println("ERROR:", err.Error())
+        return
+    }
+    fmt.Println("DEBUG:", buf[:n])
+    return
+}
+
 func main() {
-    le32(49862)
+    le32(4661)
 
     /* socket connect */
     //conn, err := net.Dial("tcp", "88.191.228.66:7111")
@@ -67,9 +84,9 @@ func main() {
                    54, 18,
                    4, 0, 0, 0,
                    2, 0x1, 0, 1, 6/* len(nickname) */, 0, 'l', 'e', 's', 'l', 'i', 'e',
-                   3, 1, 0, 17, 60, 0, 0, 0,
-                   3, 1, 0, 32, 29, 7, 0, 0,
-                   3, 1, 0, 251, 128, 12, 4, 3}
+                   /* version tag */3, 1, 0, 17, 60, 0, 0, 0,
+                   /* port tag */3, 1, 0, 32, 29, 7, 0, 0,
+                   /* flags tag */3, 1, 0, 251, 128, 12, 4, 3}
     uuid := GUID()
     for i := 6; i < 22; i++ { data[i] = uuid[i - 6] }
     fmt.Println("DEBUG:", string(data))
@@ -80,6 +97,24 @@ func main() {
         fmt.Println("ERROR: ", err.Error())
         return;
     }
+
+    /*
+    listener, err := net.Listen("tcp", "0.0.0.0:4662")
+    if err != nil {
+        println("error listening:", err.Error())
+        os.Exit(1)
+    }
+    defer listener.Close()
+
+    for {
+        conn, err := listener.Accept()
+        if err != nil {
+            println("Error accept:", err.Error())
+            return
+        }
+        go respConn(conn)
+    }
+    */
 
     /* socket read */
     data = make([]byte, 1024)
