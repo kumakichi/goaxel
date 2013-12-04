@@ -27,7 +27,7 @@ import (
     "encoding/binary"
 )
 
-func uuid() []byte {
+func GUID() []byte {
     f, _ := os.Open("/dev/urandom")
     b := make([]byte, 16)
     f.Read(b)
@@ -38,17 +38,18 @@ func uuid() []byte {
     return b
 }
 
-func be32(num int32) {
+func le32(num int32) {
     b := make([]byte, 4)
-    binary.BigEndian.PutUint32(b, uint32(num))
+    binary.LittleEndian.PutUint32(b, uint32(num))
     fmt.Println("DEBUG:", b)
 }
 
 func main() {
-    be32(5)
+    le32(49862)
 
     /* socket connect */
-    conn, err := net.Dial("tcp", "88.191.228.66:7111")
+    //conn, err := net.Dial("tcp", "88.191.228.66:7111")
+    conn, err := net.Dial("tcp", "0.0.0.0:7111")
     if err != nil {
         fmt.Println("ERROR: ", err.Error())
         return;
@@ -59,18 +60,18 @@ func main() {
 
     /* socket write */
     data := []byte{0xE3,
-                   0, 0, 0, 43,
+                   63, 0, 0, 0,
                    0x01,
                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                   0x7F, 0x00, 0x00, 0x01,
-                   18, 54,
-                   0, 0, 0, 4,
-                   1, 0, 6, 'l', 'e', 's', 'l', 'i', 'e',
-                   0x11, 60,
-                   0x0f, 18, 54,
-                   0x20, 0}
-    tmp := uuid()
-    for i := 6; i < 22; i++ { data[i] = tmp[i - 6] }
+                   0, 0, 0, 0,
+                   54, 18,
+                   4, 0, 0, 0,
+                   2, 0x1, 0, 1, 6/* len(nickname) */, 0, 'l', 'e', 's', 'l', 'i', 'e',
+                   3, 1, 0, 17, 60, 0, 0, 0,
+                   3, 1, 0, 32, 29, 7, 0, 0,
+                   3, 1, 0, 251, 128, 12, 4, 3}
+    uuid := GUID()
+    for i := 6; i < 22; i++ { data[i] = uuid[i - 6] }
     fmt.Println("DEBUG:", string(data))
     fmt.Println("DEBUG:", data)
     fmt.Println("DEBUG:", len(data) - 5)
@@ -87,9 +88,7 @@ func main() {
         if err != nil {
             if err != io.EOF { panic(err) }
         }
-        if n == 0 {
-            fmt.Println("No data coming")
-        } else {
+        if n != 0 {
             fmt.Println(string(data[:n]))
         }
         time.Sleep(1000 * time.Millisecond)
