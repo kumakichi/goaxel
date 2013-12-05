@@ -30,6 +30,10 @@ func main() {
         return
     }
     o := new(emule.ServerMet)
-    o.Debug = true
+    //o.Debug = true
     o.OpenFile(os.Args[1])
+    fmt.Println(len(o.Servers))
+    for i := 0; i < len(o.Servers); i++ {
+        fmt.Println(o.Servers[i])
+    }
 }

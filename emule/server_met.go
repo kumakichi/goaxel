@@ -29,14 +29,20 @@ type Server struct {
     IP      string
     Port    int16
     Name    string
+    Desc    string
 }
 
 type ServerMet struct {
     Debug       bool
     IsValid     bool        `access:read`
     ServerCount int32       `access:read`
-    Servers     []Server    `access:read`
+    Servers     []*Server   `access:read`
     buf         []byte
+    offset      int
+}
+
+func (this *ServerMet) init() {
+    this.offset = 0
 }
 
 func (this *ServerMet) byteToInt16(data []byte) (ret int16) {
@@ -51,18 +57,56 @@ func (this *ServerMet) byteToInt32(data []byte) (ret int32) {
     return
 }
 
-func (this *ServerMet) parseTags(tagCount int32, offset int) {
-    tagType := this.buf[offset]
-    if this.Debug {
-        fmt.Printf("DEBUG: tagType 0x%02x\n", tagType)
-    }
-    if tagType == 0x02 {
-        offset++
-        numOfByteInSpecTag := this.byteToInt16(this.buf[offset:offset + 2])
+func (this *ServerMet) parseTags(tagCount int32) (name, desc string) {
+    name = ""
+    desc = ""
+    for i := 0; i < int(tagCount); i++ {
+        tagType := this.buf[this.offset]
         if this.Debug {
-            fmt.Println("DEBUG:", numOfByteInSpecTag)
+            fmt.Printf("DEBUG: tagType 0x%02x\n", tagType)
+        }
+        if tagType == 0x02 {
+            this.offset++
+            numOfByteInSpecTag := this.byteToInt16(this.buf[this.offset:this.offset + 2])
+            this.offset += 2
+            if this.Debug {
+                fmt.Println("DEBUG: number of bytes in Special tag", numOfByteInSpecTag)
+            }
+            specTagType := this.buf[this.offset:this.offset + int(numOfByteInSpecTag)]
+            this.offset += int(numOfByteInSpecTag)
+            if this.Debug {
+                fmt.Println("DEBUG: Special tag type", specTagType)
+            }
+            strLen := this.byteToInt16(this.buf[this.offset:this.offset + 2])
+            this.offset += 2
+            strVal := string(this.buf[this.offset:this.offset + int(strLen)])
+            if specTagType[0] == 0x01 {
+                name = strVal
+            } else if specTagType[0] == 0x0b {
+                desc = strVal
+            }
+            if this.Debug {
+                fmt.Println("DEBUG: string length", strLen)
+                fmt.Println("DEBUG:", strVal)
+            }
+            this.offset += int(strLen)
+        } else if tagType == 0x03 {
+            this.offset++
+            numOfByteInSpecTag := this.byteToInt16(this.buf[this.offset:this.offset + 2])
+            this.offset += 2
+            if this.Debug {
+                fmt.Println("DEBUG: number of bytes in Special tag", numOfByteInSpecTag)
+            }
+            specTagType := this.buf[this.offset:this.offset + int(numOfByteInSpecTag)]
+            this.offset += int(numOfByteInSpecTag)
+            if this.Debug {
+                fmt.Println("Debug: Special tag type", specTagType)
+                fmt.Println("DEBUG:", this.buf[this.offset:this.offset + 4])
+            }
+            this.offset += 4
         }
     }
+    return
 }
 
 func (this *ServerMet) OpenFile(filePath string) {
@@ -71,34 +115,41 @@ func (this *ServerMet) OpenFile(filePath string) {
         fmt.Println("ERROR:", err.Error())
     }
     this.buf = b
-    if this.buf[0] == 0x0E || len(this.buf) < 6 {
+    if this.buf[this.offset] == 0x0E || len(this.buf) < 6 {
         this.IsValid = true
+        this.offset++
     } else {
         this.IsValid = false
         fmt.Println("ERROR: Invalid server met file")
         return
     }
 
-    this.ServerCount = this.byteToInt32(this.buf[1:5])
+    this.ServerCount = this.byteToInt32(this.buf[this.offset:5])
+    this.offset += 4
     if this.Debug {
-        fmt.Println("DEBUG:", this.ServerCount)
+        fmt.Println("DEBUG: server count", this.ServerCount)
     }
 
     for i := 0; i < int(this.ServerCount); i++ {
         ipv4 := fmt.Sprintf("%v.%v.%v.%v",
-            this.buf[i + 5], this.buf[i + 6], this.buf[i + 7], this.buf[i + 8])
+            this.buf[this.offset], this.buf[this.offset + 1],
+            this.buf[this.offset + 2], this.buf[this.offset + 3])
+        this.offset += 4
         if this.Debug {
-            fmt.Println("DEBUG:", ipv4)
+            fmt.Println("DEBUG: ipv4", ipv4)
         }
-        port := this.byteToInt16(this.buf[i + 9:i + 11])
+        port := this.byteToInt16(this.buf[this.offset:this.offset + 2])
+        this.offset += 2
         if this.Debug {
-            fmt.Println("DEBUG:", port)
+            fmt.Println("DEBUG: port", port)
         }
-        tagCount := this.byteToInt32(this.buf[i + 11:i + 15])
+        tagCount := this.byteToInt32(this.buf[this.offset:this.offset + 4])
+        this.offset += 4
         if this.Debug {
-            fmt.Println("DEBUG:", tagCount)
+            fmt.Println("DEBUG: tag count", tagCount)
         }
-        this.parseTags(tagCount, i + 15)
-        //break
+        name, desc := this.parseTags(tagCount)
+        this.Servers = append(this.Servers,
+            &Server{IP: ipv4, Port: port, Name: name, Desc: desc})
     }
 }
