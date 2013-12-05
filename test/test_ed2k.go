@@ -24,6 +24,7 @@ import (
     "io"
     "os"
     "time"
+    "bytes"
     "encoding/binary"
 )
 
@@ -50,19 +51,41 @@ func le16(num int32) {
     fmt.Println("DEBUG:", b)
 }
 
-func respConn(conn net.Conn) {
-    buf := make([]byte, 1024)
-    n, err := conn.Read(buf)
+func byteToInt32(data []byte) (ret int32) {
+    buf := bytes.NewBuffer(data)
+    binary.Read(buf, binary.LittleEndian, &ret)
+    return
+}
+
+func int16ToByte(data int16) (ret []byte) {
+    ret = []byte{}
+    buf := new(bytes.Buffer)
+    err := binary.Write(buf, binary.LittleEndian, data)
     if err != nil {
-        println("ERROR:", err.Error())
+        fmt.Println("ERROR:", err.Error())
         return
     }
-    fmt.Println("DEBUG:", buf[:n])
+    ret = buf.Bytes()
+    return
+}
+
+func int32ToByte(data int32) (ret []byte) {
+    ret = []byte{}
+    buf := new(bytes.Buffer)
+    err := binary.Write(buf, binary.LittleEndian, data)
+    if err != nil {
+        fmt.Println("ERROR:", err.Error())
+        return
+    }
+    ret = buf.Bytes()
     return
 }
 
 func main() {
-    le32(4661)
+    fmt.Printf("0x%02x 0x%02x 0x%02x 0x%02x\n", 17, 60, 32, 251)
+    fmt.Println(byteToInt32([]byte{29, 7, 0, 0}))
+    fmt.Println(int16ToByte(int16(4662)))
+    fmt.Println(int32ToByte(1821))
 
     /* socket connect */
     //conn, err := net.Dial("tcp", "88.191.228.66:7111")
@@ -83,10 +106,12 @@ func main() {
                    0, 0, 0, 0,
                    54, 18,
                    4, 0, 0, 0,
-                   2, 0x1, 0, 1, 6/* len(nickname) */, 0, 'l', 'e', 's', 'l', 'i', 'e',
-                   /* version tag */3, 1, 0, 17, 60, 0, 0, 0,
-                   /* port tag */3, 1, 0, 32, 29, 7, 0, 0,
-                   /* flags tag */3, 1, 0, 251, 128, 12, 4, 3}
+                   /*            string  numOfByte SpecialTag strLen   */
+                   /* nickname */0x02,   1, 0,     1,         6, 0,  'l', 'e', 's', 'l', 'i', 'e',
+                   /*            integer numOfByte SpecialTag intValue */
+                   /* version  */0x03,   1, 0,     0x11,      0x3C, 0, 0, 0,
+                   /* port tag */0x03,   1, 0,     0x0F,      29, 7, 0, 0,
+                   /* flags    */0x03,   1, 0,     0x20,      128, 12, 4, 3}
     uuid := GUID()
     for i := 6; i < 22; i++ { data[i] = uuid[i - 6] }
     fmt.Println("DEBUG:", string(data))
@@ -97,24 +122,6 @@ func main() {
         fmt.Println("ERROR: ", err.Error())
         return;
     }
-
-    /*
-    listener, err := net.Listen("tcp", "0.0.0.0:4662")
-    if err != nil {
-        println("error listening:", err.Error())
-        os.Exit(1)
-    }
-    defer listener.Close()
-
-    for {
-        conn, err := listener.Accept()
-        if err != nil {
-            println("Error accept:", err.Error())
-            return
-        }
-        go respConn(conn)
-    }
-    */
 
     /* socket read */
     data = make([]byte, 1024)
