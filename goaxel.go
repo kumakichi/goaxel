@@ -49,7 +49,7 @@ var (
     outputFile      *os.File
     contentLength   int
     acceptRange     bool
-    chunkFileIndex  []int
+    chunkFiles      []string
     wg              sync.WaitGroup
     bar             *pb.ProgressBar
 )
@@ -122,11 +122,8 @@ func travelChunk(path string) {
     err := filepath.Walk(path, func(path string, f os.FileInfo, err error) error {
         if f == nil { return err }
         if f.IsDir() { return nil }
-        prefix := outputFileName + ".part."
-        pos := strings.Index(path, prefix)
-        if pos != -1 {
-            key, _ := strconv.Atoi(path[pos + len(prefix):])
-            chunkFileIndex = append(chunkFileIndex, key)
+        if strings.HasPrefix(path, outputFileName + ".part.") {
+            chunkFiles = append(chunkFiles, path)
         }
         return nil
     })
@@ -134,7 +131,7 @@ func travelChunk(path string) {
         fmt.Printf("ERROR:", err.Error())
         return
     }
-    sort.Ints(chunkFileIndex)
+    sort.Strings(chunkFiles)
 }
 
 func fileSize(fileName string) (ret int64) {
@@ -153,10 +150,10 @@ func fileSize(fileName string) (ret int64) {
 func splitWork() {
     travelChunk(".")
     hasChunk := false
-    if len(chunkFileIndex) != 0 {
+    if len(chunkFiles) != 0 {
         fmt.Println("Found chunk files, continue downloading...")
         hasChunk    = true
-        connNum     = uint(len(chunkFileIndex))
+        connNum     = uint(len(chunkFiles))
     }
     offset := contentLength / int(connNum)
     remainder := 0
@@ -167,8 +164,7 @@ func splitWork() {
     for i := 0; i < int(connNum); i++ {
         chunkFileSize := 0
         if hasChunk {
-            chunkFileSize = int(fileSize(fmt.Sprintf("%s.part.%d",
-                outputFileName, chunkFileIndex[i])))
+            chunkFileSize = int(fileSize(chunkFiles[i]))
             bar.Add(chunkFileSize)
         }
         if i > len(urls) - 1 {
@@ -186,12 +182,11 @@ func splitWork() {
 }
 
 func writeChunk(path string) {
-    if len(chunkFileIndex) == 0 {
+    if len(chunkFiles) == 0 {
         travelChunk(".")
     }
-    for _, v := range chunkFileIndex {
-        chunkFileName := fmt.Sprintf("%s.part.%d", outputFileName, v)
-        chunkFile, _  := os.Open(chunkFileName)
+    for _, v := range chunkFiles {
+        chunkFile, _  := os.Open(v)
         defer chunkFile.Close()
         chunkReader := bufio.NewReader(chunkFile)
         chunkWriter := bufio.NewWriter(outputFile)
@@ -206,7 +201,7 @@ func writeChunk(path string) {
             }
         }
         if err := chunkWriter.Flush(); err != nil { panic(err) }
-        os.Remove(chunkFileName)
+        os.Remove(v)
     }
 }
 
