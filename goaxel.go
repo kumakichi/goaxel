@@ -103,6 +103,7 @@ func parseUrl(strUrl string) (protocol string, host string, port int,
         passwd, _ = userinfo.Password()
     }
     strPath = u.Path
+    if strPath == "" { strPath = "/" }
     pos := strings.Index(host, ":")
     if pos != -1 {
         port, _ = strconv.Atoi(host[pos + 1:])

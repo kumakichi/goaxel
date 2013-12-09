@@ -44,32 +44,32 @@ type HTTPS struct {
     Callback        func(int)
 }
 
-func (https *HTTPS) Connect(host string, port int) bool {
+func (this *HTTPS) Connect(host string, port int) bool {
     address := fmt.Sprintf("%s:%d", host, port)
-    https.conn, https.Error = tls.Dial("tcp", address, nil)
-    if https.Error != nil {
-        fmt.Println("ERROR: ", https.Error.Error())
+    this.conn, this.Error = tls.Dial("tcp", address, nil)
+    if this.Error != nil {
+        fmt.Println("ERROR: ", this.Error.Error())
         return false
     }
-    https.host = host
-    https.port = port
+    this.host = host
+    this.port = port
     return true
 }
 
-func (https *HTTPS) AddHeader(header string) {
-    https.header += header + "\r\n"
+func (this *HTTPS) AddHeader(header string) {
+    this.header += header + "\r\n"
 }
 
-/* TODO: get https header */
-func (https *HTTPS) Response() {
-    defer https.conn.Close()
+/* TODO: get this header */
+func (this *HTTPS) Response() {
+    defer this.conn.Close()
     data := make([]byte, 1)
     for i := 0; ; {
-        n, err := https.conn.Read(data)
+        n, err := this.conn.Read(data)
         if err != nil {
             if err != io.EOF {
-                https.Error = err
-                fmt.Println("ERROR:", https.Error.Error())
+                this.Error = err
+                fmt.Println("ERROR:", this.Error.Error())
                 return
             }
         }
@@ -83,26 +83,26 @@ func (https *HTTPS) Response() {
         } else {
             i++
         }
-        https.headerResponse += string(data[:n])
+        this.headerResponse += string(data[:n])
     }
-    if https.Debug {
-        fmt.Println("DEBUG:", https.headerResponse)
+    if this.Debug {
+        fmt.Println("DEBUG:", this.headerResponse)
     }
-    https.conn.Close()
+    this.conn.Close()
 }
 
-func (https *HTTPS) WriteToFile(outputFileName string, old_range_from int, chunkSize int) {
-    https.offset = chunkSize
-    defer https.conn.Close()
+func (this *HTTPS) WriteToFile(outputFileName string, old_range_from int, chunkSize int) {
+    this.offset = chunkSize
+    defer this.conn.Close()
     resp := ""
     data := make([]byte, 1)
     for i := 0; ; {
         data := make([]byte, 1)
-        n, err := https.conn.Read(data)
+        n, err := this.conn.Read(data)
         if err != nil {
             if err != io.EOF {
-                https.Error = err
-                fmt.Println("ERROR:", https.Error.Error())
+                this.Error = err
+                fmt.Println("ERROR:", this.Error.Error())
                 return
             }
         }
@@ -118,7 +118,7 @@ func (https *HTTPS) WriteToFile(outputFileName string, old_range_from int, chunk
         }
         resp += string(data[:n])
     }
-    if https.Debug {
+    if this.Debug {
         fmt.Println("DEBUG:", resp)
     }
     chunkName := fmt.Sprintf("%s.part.%d", outputFileName, old_range_from)
@@ -127,66 +127,66 @@ func (https *HTTPS) WriteToFile(outputFileName string, old_range_from int, chunk
     if err != nil { panic(err) }
     data = make([]byte, buffer_size)
     for {
-        n, err := https.conn.Read(data)
+        n, err := this.conn.Read(data)
         if err != nil {
             if err != io.EOF {
-                https.Error = err
-                fmt.Println("ERROR:", https.Error.Error())
+                this.Error = err
+                fmt.Println("ERROR:", this.Error.Error())
                 return
             }
         }
-        f.WriteAt(data[:n], int64(https.offset))
-        if https.Callback != nil {
-            https.Callback(n)
+        f.WriteAt(data[:n], int64(this.offset))
+        if this.Callback != nil {
+            this.Callback(n)
         }
-        https.offset += n
+        this.offset += n
         if err == io.EOF { return }
     }
     return
 }
 
-func (https *HTTPS) Get(url string, range_from, range_to int) {
-    https.AddHeader(fmt.Sprintf("GET %s HTTP/1.0", url))
-    https.AddHeader(fmt.Sprintf("Host: %s", https.host))
+func (this *HTTPS) Get(url string, range_from, range_to int) {
+    this.AddHeader(fmt.Sprintf("GET %s HTTP/1.0", url))
+    this.AddHeader(fmt.Sprintf("Host: %s", this.host))
     if range_to == 0 {
-        https.AddHeader(fmt.Sprintf("Range: bytes=0-"))
+        this.AddHeader(fmt.Sprintf("Range: bytes=0-"))
     } else {
-        https.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", range_from, range_to))
+        this.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", range_from, range_to))
     }
-    https.AddHeader(fmt.Sprintf("User-Agent: %s", https.UserAgent))
-    https.AddHeader("")
-    if https.Debug {
-        fmt.Println("DEBUG:", https.header)
+    this.AddHeader(fmt.Sprintf("User-Agent: %s", this.UserAgent))
+    this.AddHeader("")
+    if this.Debug {
+        fmt.Println("DEBUG:", this.header)
     }
-    _, https.Error = https.conn.Write([]byte(https.header))
-    if https.Error != nil {
-        fmt.Println("ERROR: ", https.Error.Error())
+    _, this.Error = this.conn.Write([]byte(this.header))
+    if this.Error != nil {
+        fmt.Println("ERROR: ", this.Error.Error())
     }
 }
 
-func (https *HTTPS) IsAcceptRange() bool {
+func (this *HTTPS) IsAcceptRange() bool {
     ret := false
 
-    if strings.Contains(https.headerResponse, "Content-Range") || 
-        strings.Contains(https.headerResponse, "Accept-Ranges"){
+    if strings.Contains(this.headerResponse, "Content-Range") || 
+        strings.Contains(this.headerResponse, "Accept-Ranges"){
         ret = true
     }
 
     return ret
 }
 
-func (https *HTTPS) GetContentLength() int {
+func (this *HTTPS) GetContentLength() int {
     ret := 0
     r, err := regexp.Compile(`Content-Length: (.*)`)
     if err != nil {
-        https.Error = err
+        this.Error = err
         fmt.Println("ERROR: ", err.Error())
         return ret
     }
-    result := r.FindStringSubmatch(https.headerResponse)
+    result := r.FindStringSubmatch(this.headerResponse)
     if len(result) != 0 {
         s := strings.TrimSuffix(result[1], "\r")
-        ret, https.Error = strconv.Atoi(s)
+        ret, this.Error = strconv.Atoi(s)
     }
     return ret
 }

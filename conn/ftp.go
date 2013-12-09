@@ -47,46 +47,46 @@ type FTP struct {
     Callback    func(int)
 }
 
-func (ftp *FTP) debugInfo(s string) {
-	if ftp.Debug {
+func (this *FTP) debugInfo(s string) {
+	if this.Debug {
 		fmt.Println(s)
 	}
 }
 
-func (ftp *FTP) NewConnect() net.Conn {
-    conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", ftp.host, ftp.pasv))
+func (this *FTP) NewConnect() net.Conn {
+    conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", this.host, this.pasv))
     if err != nil {
-        ftp.Error = err
-        fmt.Println("ERROR:", ftp.Error.Error())
+        this.Error = err
+        fmt.Println("ERROR:", this.Error.Error())
     }
-    if ftp.Debug {
-        ftp.cmd = fmt.Sprintf("NewConnect:%d", ftp.pasv)
+    if this.Debug {
+        this.cmd = fmt.Sprintf("NewConnect:%d", this.pasv)
     }
     return conn
 }
 
-func (ftp *FTP) Connect(host string, port int) bool {
+func (this *FTP) Connect(host string, port int) bool {
 	addr := fmt.Sprintf("%s:%d", host, port)
-	ftp.conn, ftp.Error = net.Dial("tcp", addr)
-	if ftp.Error != nil {
-        fmt.Println("ERROR:", ftp.Error.Error())
+	this.conn, this.Error = net.Dial("tcp", addr)
+	if this.Error != nil {
+        fmt.Println("ERROR:", this.Error.Error())
         return false
     }
-    ftp.Response()
-	ftp.host = host
-	ftp.port = port
+    this.Response()
+	this.host = host
+	this.port = port
     return true
 }
 
-func (ftp *FTP) Login(user, passwd string) {
-	ftp.Request("USER " + user)
-	ftp.Request("PASS " + passwd)
-	ftp.user = user
-	ftp.passwd = passwd
+func (this *FTP) Login(user, passwd string) {
+	this.Request("USER " + user)
+	this.Request("PASS " + passwd)
+	this.user = user
+	this.passwd = passwd
 }
 
-func (ftp *FTP) WriteToFile(conn net.Conn, fileName string, old_range_from, offset int) {
-    ftp.offset = offset
+func (this *FTP) WriteToFile(conn net.Conn, fileName string, old_range_from, offset int) {
+    this.offset = offset
     defer conn.Close()
     data := make([]byte, 102400)
     chunkName := fmt.Sprintf("%s.part.%d", fileName, old_range_from)
@@ -98,78 +98,78 @@ func (ftp *FTP) WriteToFile(conn net.Conn, fileName string, old_range_from, offs
         if err != nil {
             if err != io.EOF { panic(err) }
         }
-        f.WriteAt(data[:n], int64(ftp.offset))
-        if ftp.Callback != nil {
-            ftp.Callback(ftp.offset)
+        f.WriteAt(data[:n], int64(this.offset))
+        if this.Callback != nil {
+            this.Callback(this.offset)
         }
-        ftp.offset += n
+        this.offset += n
         if err == io.EOF { return }
     }
     return
 }
 
-func (ftp *FTP) Response() (code int, message string) {
+func (this *FTP) Response() (code int, message string) {
 	ret := make([]byte, 1024)
-	n, _ := ftp.conn.Read(ret)
+	n, _ := this.conn.Read(ret)
 	msg := string(ret[:n])
 	code, _ = strconv.Atoi(msg[:3])
 	message = msg[4 : len(msg)-2]
-	ftp.debugInfo("<*cmd*> " + ftp.cmd)
-	ftp.debugInfo(fmt.Sprintf("<*code*> %d", code))
-	ftp.debugInfo("<*message*> " + message)
+	this.debugInfo("<*cmd*> " + this.cmd)
+	this.debugInfo(fmt.Sprintf("<*code*> %d", code))
+	this.debugInfo("<*message*> " + message)
 	return
 }
 
-func (ftp *FTP) Request(cmd string) {
-	if ftp.conn == nil { return }
-    ftp.conn.Write([]byte(cmd + "\r\n"))
-	ftp.cmd = cmd
-	ftp.Code, ftp.Message = ftp.Response()
+func (this *FTP) Request(cmd string) {
+	if this.conn == nil { return }
+    this.conn.Write([]byte(cmd + "\r\n"))
+	this.cmd = cmd
+	this.Code, this.Message = this.Response()
 	if cmd == "PASV" {
-		start, end := strings.Index(ftp.Message, "("), strings.Index(ftp.Message, ")")
-		s := strings.Split(ftp.Message[start:end], ",")
+		start, end := strings.Index(this.Message, "("), strings.Index(this.Message, ")")
+		s := strings.Split(this.Message[start:end], ",")
 		l1, _ := strconv.Atoi(s[len(s)-2])
 		l2, _ := strconv.Atoi(s[len(s)-1])
-		ftp.pasv = l1*256 + l2
+		this.pasv = l1*256 + l2
 	}
 }
 
-func (ftp *FTP) Pasv() {
-	ftp.Request("PASV")
+func (this *FTP) Pasv() {
+	this.Request("PASV")
 }
 
-func (ftp *FTP) Pwd() {
-	ftp.Request("PWD")
+func (this *FTP) Pwd() {
+	this.Request("PWD")
 }
 
-func (ftp *FTP) Cwd(path string) {
-	ftp.Request("CWD " + path)
+func (this *FTP) Cwd(path string) {
+	this.Request("CWD " + path)
 }
 
-func (ftp *FTP) Mkd(path string) {
-	ftp.Request("MKD " + path)
+func (this *FTP) Mkd(path string) {
+	this.Request("MKD " + path)
 }
 
-func (ftp *FTP) Size(path string) (size int) {
-	ftp.Request("SIZE " + path)
-	size, _ = strconv.Atoi(ftp.Message)
+func (this *FTP) Size(path string) (size int) {
+	this.Request("SIZE " + path)
+	size, _ = strconv.Atoi(this.Message)
 	return
 }
 
-func (ftp *FTP) List() {
-	ftp.Pasv()
-	ftp.Request("LIST")
+func (this *FTP) List() {
+	this.Pasv()
+	this.Request("LIST")
 }
 
-func (ftp *FTP) Stor(file string, data []byte) {
-	ftp.Pasv()
+func (this *FTP) Stor(file string, data []byte) {
+	this.Pasv()
 	if data != nil {
-		ftp.stream = data
+		this.stream = data
 	}
-	ftp.Request("STOR " + file)
+	this.Request("STOR " + file)
 }
 
-func (ftp *FTP) Quit() {
-	ftp.Request("QUIT")
-	ftp.conn.Close()
+func (this *FTP) Quit() {
+	this.Request("QUIT")
+	this.conn.Close()
 }

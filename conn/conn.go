@@ -38,79 +38,79 @@ type CONN struct {
     ftp         FTP
 }
 
-func (conn *CONN) httpConnect() bool {
-    conn.http.Debug = conn.Debug
-    conn.http.Protocol = conn.Protocol
-    conn.http.UserAgent = conn.UserAgent
-    return conn.http.Connect(conn.Host, conn.Port)
+func (this *CONN) httpConnect() bool {
+    this.http.Debug = this.Debug
+    this.http.Protocol = this.Protocol
+    this.http.UserAgent = this.UserAgent
+    return this.http.Connect(this.Host, this.Port)
 }
 
-func (conn *CONN) httpsConnect() bool {
-    conn.https.Debug = conn.Debug
-    conn.https.Protocol = conn.Protocol
-    conn.https.UserAgent = conn.UserAgent
-    return conn.https.Connect(conn.Host, conn.Port)
+func (this *CONN) httpsConnect() bool {
+    this.https.Debug = this.Debug
+    this.https.Protocol = this.Protocol
+    this.https.UserAgent = this.UserAgent
+    return this.https.Connect(this.Host, this.Port)
 }
 
-func (conn *CONN) ftpConnect() bool {
-    conn.ftp.Debug = conn.Debug
-    if conn.ftp.Connect(conn.Host, conn.Port) == false { return false }
-    if conn.UserName == "" { conn.UserName = "anonymous" }
-    conn.ftp.Login(conn.UserName, conn.Passwd)
-    if conn.ftp.Code == 530 {
+func (this *CONN) ftpConnect() bool {
+    this.ftp.Debug = this.Debug
+    if this.ftp.Connect(this.Host, this.Port) == false { return false }
+    if this.UserName == "" { this.UserName = "anonymous" }
+    this.ftp.Login(this.UserName, this.Passwd)
+    if this.ftp.Code == 530 {
         fmt.Println("ERROR: login failure")
         return false
     }
-    conn.ftp.Request("TYPE I")
-    dir := path.Dir(conn.Path)
+    this.ftp.Request("TYPE I")
+    dir := path.Dir(this.Path)
     if dir != "/" { dir += "/" }
-    conn.ftp.Cwd(dir)
+    this.ftp.Cwd(dir)
     return true
 }
 
-func (conn *CONN) GetContentLength(fileName string) (length int, accept bool) {
+func (this *CONN) GetContentLength(fileName string) (length int, accept bool) {
     length = 0
     accept = false
 
-    if conn.Protocol == "http" {
-        if conn.httpConnect() == false { return }
-        conn.http.Get(conn.Path, 1, 0)
-        conn.http.Response()
-        length = conn.http.GetContentLength()
-        accept = conn.http.IsAcceptRange()
-    } else if conn.Protocol == "https" {
-        if conn.httpsConnect() == false { return }
-        conn.https.Get(conn.Path, 1, 0)
-        conn.https.Response()
-        length = conn.https.GetContentLength()
-        accept = conn.https.IsAcceptRange()
-    } else if conn.Protocol == "ftp" {
-        if conn.ftpConnect() == false { return }
-        length = conn.ftp.Size(fileName)
+    if this.Protocol == "http" {
+        if this.httpConnect() == false { return }
+        this.http.Get(this.Path, 1, 0)
+        this.http.Response()
+        length = this.http.GetContentLength()
+        accept = this.http.IsAcceptRange()
+    } else if this.Protocol == "https" {
+        if this.httpsConnect() == false { return }
+        this.https.Get(this.Path, 1, 0)
+        this.https.Response()
+        length = this.https.GetContentLength()
+        accept = this.https.IsAcceptRange()
+    } else if this.Protocol == "ftp" {
+        if this.ftpConnect() == false { return }
+        length = this.ftp.Size(fileName)
         accept = true
     }
 
     return
 }
 
-func (conn *CONN) Get(range_from, range_to int, fileName string, old_range_from int, chunksize int) {
-    if conn.Protocol == "http" {
-        if conn.httpConnect() == false { return }
-        conn.http.Callback = conn.Callback
-        conn.http.Get(conn.Path, range_from, range_to)
-        conn.http.WriteToFile(fileName, old_range_from, chunksize)
-    } else if conn.Protocol == "https" {
-        if conn.httpsConnect() == false { return }
-        conn.https.Callback = conn.Callback
-        conn.https.Get(conn.Path, range_from, range_to)
-        conn.https.WriteToFile(fileName, old_range_from, chunksize)
-    } else if conn.Protocol == "ftp" {
-        if conn.ftpConnect() == false { return }
-        conn.ftp.Callback = conn.Callback
-        conn.ftp.Pasv()
-        newConn := conn.ftp.NewConnect()
-        conn.ftp.Request(fmt.Sprintf("REST %d", range_from))
-        conn.ftp.Request("RETR " + fileName)
-        conn.ftp.WriteToFile(newConn, fileName, range_from, chunksize)
+func (this *CONN) Get(range_from, range_to int, fileName string, old_range_from int, chunksize int) {
+    if this.Protocol == "http" {
+        if this.httpConnect() == false { return }
+        this.http.Callback = this.Callback
+        this.http.Get(this.Path, range_from, range_to)
+        this.http.WriteToFile(fileName, old_range_from, chunksize)
+    } else if this.Protocol == "https" {
+        if this.httpsConnect() == false { return }
+        this.https.Callback = this.Callback
+        this.https.Get(this.Path, range_from, range_to)
+        this.https.WriteToFile(fileName, old_range_from, chunksize)
+    } else if this.Protocol == "ftp" {
+        if this.ftpConnect() == false { return }
+        this.ftp.Callback = this.Callback
+        this.ftp.Pasv()
+        newConn := this.ftp.NewConnect()
+        this.ftp.Request(fmt.Sprintf("REST %d", range_from))
+        this.ftp.Request("RETR " + fileName)
+        this.ftp.WriteToFile(newConn, fileName, range_from, chunksize)
     }
 }
