@@ -7,12 +7,13 @@ install
 ```
 go get github.com/xiangzhai/goaxel 
 go get github.com/cheggaaa/pb
+go build
 ```
 
 usage 
 =====
-* go run goaxel.go -d http://www.linuxdeepin.com/index.en.html 
-* go run goaxel.go -d -n 6 http://www.linuxdeepin.com/index.en.html
+* goaxel -d http://www.linuxdeepin.com/index.en.html 
+* goaxel -n 6 http://www.linuxdeepin.com/index.en.html
 
 screenshot 
 ==========
