@@ -80,7 +80,7 @@ func (this *ServerMet) parseTags(tagCount int32) (name, desc string) {
             strLen := this.byteToInt16(this.buf[this.offset:this.offset + 2])
             this.offset += 2
             strVal := string(this.buf[this.offset:this.offset + int(strLen)])
-            if specTagType[0] == 0x01 {
+            if specTagType[0] == OP_LOGINREQUEST {
                 name = strVal
             } else if specTagType[0] == 0x0b {
                 desc = strVal
