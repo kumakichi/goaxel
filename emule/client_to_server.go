@@ -88,14 +88,17 @@ func (this *Client2Server) Login() {
     }
 }
 
-func (this *Client2Server) Connect() {
+func (this *Client2Server) Connect() (ret bool) {
+    ret = false
     conn, err := net.Dial(this.Protocol, fmt.Sprintf("%s:%d", this.Host, this.Port))
     if err != nil {
         this.conn = nil
         log.Println(err.Error())
         return
     }
+    ret = true
     this.conn = conn
+    return
 }
 
 func (this *Client2Server) Disconnect() {

@@ -20,12 +20,14 @@ package emule
 
 /* TODO: amule-2.3.1/src/include/protocol/ed2k/Client2Server/TCP.h */
 const (
-    OP_EDONKEYHEADER    byte = 0xE3
-    OP_LOGINREQUEST     byte = 0x01
-    TAG_STRING          byte = 0x02
-    TAG_INTEGER         byte = 0x03
-    SPECIAL_TAG_NAME    byte = 0x01
-    SPECIAL_TAG_VERSION byte = 0x11
-    SPECIAL_TAG_PORT    byte = 0x0F
-    MET_HEADER          byte = 0x0E
+    BUFFER_SIZE         int     = 1024
+    OP_EDONKEYHEADER    byte    = 0xE3
+    OP_LOGINREQUEST     byte    = 0x01
+    OP_SERVERMESSAGE    byte    = 0x38
+    TAG_STRING          byte    = 0x02
+    TAG_INTEGER         byte    = 0x03
+    SPECIAL_TAG_NAME    byte    = 0x01
+    SPECIAL_TAG_VERSION byte    = 0x11
+    SPECIAL_TAG_PORT    byte    = 0x0F
+    MET_HEADER          byte    = 0x0E
 )
