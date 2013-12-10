@@ -28,6 +28,10 @@ TODO
 - [x] command progress bar
 - [x] mirror support
 - [x] HTTPS protocol
+- [ ] recursive
+- [ ] convert links
+- [ ] page requisites
+- [ ] reject list
 - [ ] BitTorrent protocol
 - [ ] eMule protocol
 - [ ] MagNet protocol
