@@ -18,14 +18,54 @@
 
 package emule
 
-/* TODO: amule-2.3.1/src/include/protocol/ed2k/Client2Server/TCP.h */
-const (
-    OP_EDONKEYHEADER    byte = 0xE3
-    OP_LOGINREQUEST     byte = 0x01
-    TAG_STRING          byte = 0x02
-    TAG_INTEGER         byte = 0x03
-    SPECIAL_TAG_NAME    byte = 0x01
-    SPECIAL_TAG_VERSION byte = 0x11
-    SPECIAL_TAG_PORT    byte = 0x0F
-    MET_HEADER          byte = 0x0E
+import (
+    "fmt"
+    "log"
+    "os"
+    "bytes"
+    "encoding/binary"
 )
+
+func byteToInt32(data []byte) (ret int32) {
+    buf := bytes.NewBuffer(data)
+    binary.Read(buf, binary.LittleEndian, &ret)
+    return
+}
+
+func byteToInt16(data []byte) (ret int16) {
+    buf := bytes.NewBuffer(data)
+    binary.Read(buf, binary.LittleEndian, &ret)
+    return
+}
+
+func int16ToByte(data int16) (ret []byte) {
+    ret = []byte{}
+    buf := new(bytes.Buffer)
+    binary.Write(buf, binary.LittleEndian, data)
+    ret = buf.Bytes()
+    return
+}
+
+func int32ToByte(data int32) (ret []byte) {
+    ret = []byte{}
+    buf := new(bytes.Buffer)
+    binary.Write(buf, binary.LittleEndian, data)
+    ret = buf.Bytes()
+    return
+}
+
+func guid() (b []byte, uuid string) {
+    b       = make([]byte, 16)
+    uuid    = ""
+
+    f, err := os.Open("/dev/urandom")
+    if err != nil {
+        log.Println(err.Error())
+        return
+    }
+    defer f.Close()
+    f.Read(b)
+    uuid = fmt.Sprintf("%x-%x-%x-%x-%x-%x-%x-%x",
+        b[0:2], b[2:4], b[4:6], b[6:8], b[8:10], b[10:12], b[12:14], b[14:16])
+    return
+}

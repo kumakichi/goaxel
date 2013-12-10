@@ -115,7 +115,7 @@ func (this *ServerMet) OpenFile(filePath string) {
         fmt.Println("ERROR:", err.Error())
     }
     this.buf = b
-    if this.buf[this.offset] == 0x0E || len(this.buf) < 6 {
+    if this.buf[this.offset] == MET_HEADER || len(this.buf) < 6 {
         this.IsValid = true
         this.offset++
     } else {
