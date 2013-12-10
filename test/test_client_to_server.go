@@ -26,5 +26,6 @@ func main() {
     o := emule.NewClient2Server("tcp", "0.0.0.0", 7111, 4662, "[GoAxel]Leslie", true)
     o.Connect()
     o.Login()
+    o.RecvRoutine()
     defer o.Disconnect()
 }

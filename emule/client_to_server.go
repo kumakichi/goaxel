@@ -20,6 +20,7 @@ package emule
 
 import (
     "fmt"
+    "io"
     "log"
     "net"
 )
@@ -42,6 +43,28 @@ func NewClient2Server(protocol, host string, port int, client_port int32,
                           ClientPort: client_port,
                           NickName:   nickname,
                           Debug:      debug}
+}
+
+func (this *Client2Server) srvMsg(buf []byte) {
+    size := byteToInt16(buf[6:8])
+    if this.Debug { fmt.Println("DEBUG:", string(buf[8:8 + size])) }
+}
+
+func (this *Client2Server) RecvRoutine() {
+    if this.conn == nil { return }
+
+    buf := make([]byte, BUFFER_SIZE)
+    for {
+        n, err := this.conn.Read(buf)
+        if err != nil {
+            if err != io.EOF { log.Println(err.Error()) }
+        }
+        if n > 5 {
+            if buf[0] == OP_EDONKEYHEADER {
+                if buf[5] == OP_SERVERMESSAGE { this.srvMsg(buf) }
+            }
+        }
+    }
 }
 
 func (this *Client2Server) Login() {
