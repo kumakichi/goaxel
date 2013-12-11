@@ -29,7 +29,6 @@ import (
     "path/filepath"
     "io"
     "bufio"
-    "sync"
     "sort"
     "github.com/xiangzhai/goaxel/conn"
     "github.com/cheggaaa/pb"
@@ -50,7 +49,7 @@ var (
     contentLength   int
     acceptRange     bool
     chunkFiles      []string
-    wg              sync.WaitGroup
+    ch              chan int
     bar             *pb.ProgressBar
 )
 
@@ -67,13 +66,13 @@ func connCallback(n int) {
 
 func startRoutine(range_from, range_to int, old_range_from int, chunksize int,
                   url string) {
-    defer wg.Done()
     protocol, host, port, strPath, userName, passwd := parseUrl(url)
     conn := &conn.CONN{Protocol: protocol, Host: host, Port: port,
                        UserAgent: userAgent, UserName: userName,
                        Passwd: passwd, Path: strPath, Debug: debug,
                        Callback: connCallback}
     conn.Get(range_from, range_to, outputFileName, old_range_from, chunksize)
+    ch <- 1
 }
 
 /* TODO: parse url to get host, port, path, basename */
@@ -243,15 +242,16 @@ func main() {
     outputFile, _ = os.Create(outputFileName)
     defer outputFile.Close()
 
+    ch = make(chan int)
     if acceptRange && connNum != 1 {
-        wg.Add(int(connNum))
         splitWork()
     } else {
-        wg.Add(1)
         fmt.Println("It does not accept range, use signal connection instead")
         go startRoutine(0, 0, 0, 0, urls[0])
     }
     bar.Start()
-    wg.Wait()
+    for i := 0; i < int(connNum); i++ {
+        <-ch
+    }
     writeChunk(".")
 }
