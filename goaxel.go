@@ -30,7 +30,7 @@ import (
     "io"
     "bufio"
     "sort"
-    "github.com/xiangzhai/goaxel/conn"
+    "github.com/kumakichi/goaxel/conn"
     "github.com/cheggaaa/pb"
 )
 

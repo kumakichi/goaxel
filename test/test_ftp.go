@@ -21,7 +21,7 @@ package main
 import (
     "fmt"
     "os"
-    "github.com/xiangzhai/goaxel/conn"
+    "github.com/kumakichi/goaxel/conn"
 )
 
 const (

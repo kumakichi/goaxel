@@ -5,7 +5,7 @@ Goroutines Download Accelerator
 install 
 =======
 ```
-go get github.com/xiangzhai/goaxel 
+go get github.com/kumakichi/goaxel 
 go get github.com/cheggaaa/pb
 go build
 ```
@@ -17,7 +17,7 @@ usage
 
 screenshot 
 ==========
-![ScreenShot](https://raw.github.com/xiangzhai/goaxel/master/doc/console.png)
+![ScreenShot](https://raw.github.com/kumakichi/goaxel/master/doc/console.png)
 
 TODO 
 ====

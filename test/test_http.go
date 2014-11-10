@@ -20,7 +20,7 @@ package main
 
 import (
     "fmt"
-    "github.com/xiangzhai/goaxel/conn"
+    "github.com/kumakichi/goaxel/conn"
 )
 
 func main() {

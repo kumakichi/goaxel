@@ -5,7 +5,7 @@ Goroutines 下载加速器
 安装 
 ====
 ```
-go get github.com/xiangzhai/goaxel 
+go get github.com/kumakichi/goaxel 
 go get github.com/cheggaaa/pb
 go build
 ```
@@ -17,7 +17,7 @@ go build
 
 截图 
 ====
-![ScreenShot](https://raw.github.com/xiangzhai/goaxel/master/doc/console.png)
+![ScreenShot](https://raw.github.com/kumakichi/goaxel/master/doc/console.png)
 
 TODO 
 ====
@@ -60,7 +60,7 @@ https://github.com/tuxcanfly/godown
 
 GoAxel处理FTP协议使用的是@smallfish童鞋的ftp.go包 https://github.com/smallfish/ftp.go 
 在此基础上, 添加了下载文件功能 
-https://github.com/xiangzhai/goftp/commit/7262e6f47ed02345eab84fbe3cf2ab6b147bb1a7
+https://github.com/kumakichi/goftp/commit/7262e6f47ed02345eab84fbe3cf2ab6b147bb1a7
 
 GoAxel命令行下的进度条使用的是@cheggaaa的pb包 https://github.com/cheggaaa/pb 
 

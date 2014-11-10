@@ -19,7 +19,7 @@
 package main
 
 import (
-    "github.com/xiangzhai/goaxel/emule"
+    "github.com/kumakichi/goaxel/emule"
 )
 
 func main() {
