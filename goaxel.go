@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	connNum        uint
+	connNum        int
 	userAgent      string
 	versionPrint   bool
 	debug          bool
@@ -76,7 +76,7 @@ func (s SortString) Less(i, j int) bool {
 }
 
 func init() {
-	flag.UintVar(&connNum, "n", 3, "Specify the number of connections")
+	flag.IntVar(&connNum, "n", 3, "Specify the number of connections")
 	flag.StringVar(&outputFileName, "o", defaultOutputFileName, "Specify output file name. If more than 1 url specified,this option will be ignored")
 	flag.StringVar(&userAgent, "U", appName, "Set user agent")
 	flag.BoolVar(&debug, "d", false, "Print debug infomation")
@@ -165,47 +165,37 @@ func travelChunk() {
 	sort.Sort(SortString(chunkFiles))
 }
 
-func fileSize(fileName string) (ret int64) {
-	ret = 0
-	f, err := os.Open(fileName)
-	defer f.Close()
-	if err != nil {
-		panic(err)
-		return
+func fileSize(fileName string) int64 {
+	if fi, err := os.Stat(fileName); err == nil {
+		return fi.Size()
 	}
-	fi, _ := f.Stat()
-	ret = fi.Size()
-	return
+	return 0
 }
 
 func splitWork(url string) {
-	travelChunk()
-	hasChunk := false
-	if len(chunkFiles) != 0 {
-		fmt.Println("Found chunk files, continue downloading...")
-		hasChunk = true
-		connNum = uint(len(chunkFiles))
-	}
-	offset := contentLength / int(connNum)
-	remainder := 0
-	if offset != 0 {
-		remainder = contentLength % (offset * int(connNum))
-	}
+	var filepath string
+	var remainder int
+
 	start := 0
-	for i := 0; i < int(connNum); i++ {
-		chunkFileSize := 0
-		if hasChunk {
-			chunkFileSize = int(fileSize(chunkFiles[i]))
+	eachPieceSize := contentLength / connNum
+	if eachPieceSize != 0 {
+		remainder = contentLength - eachPieceSize*connNum
+	}
+
+	for i := 0; i < connNum; i++ {
+		filepath = fmt.Sprintf("%s.part.%d", outputFileName, i*eachPieceSize)
+		chunkFileSize := int(fileSize(filepath))
+		if chunkFileSize > 0 {
 			bar.Add(chunkFileSize)
 		}
 
-		go startRoutine(start+chunkFileSize, start+offset-1, start,
+		if i == connNum-1 { //the last piece,down addtional 'remainder',eg. split 9 to 4 + (4+'1')
+			eachPieceSize += remainder
+		}
+		go startRoutine(start+chunkFileSize, start+eachPieceSize-1, start,
 			chunkFileSize, url)
 
-		start += offset
-		if i == int(connNum)-2 {
-			offset += remainder
-		}
+		start += eachPieceSize
 	}
 }
 
@@ -213,6 +203,7 @@ func writeChunk() {
 	if len(chunkFiles) == 0 {
 		travelChunk()
 	}
+
 	for _, v := range chunkFiles {
 		chunkFile, _ := os.Open(v)
 		defer chunkFile.Close()
@@ -266,8 +257,9 @@ func downSingleFile(url string) bool {
 		fmt.Println("It does not accept range, use signal connection instead")
 		go startRoutine(0, 0, 0, 0, url)
 	}
+
 	bar.Start()
-	for i := 0; i < int(connNum); i++ {
+	for i := 0; i < connNum; i++ {
 		<-ch
 	}
 	writeChunk()
