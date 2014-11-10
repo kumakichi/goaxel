@@ -144,20 +144,21 @@ func parseUrl(strUrl string) (protocol string, host string, port int,
 	return
 }
 
-func travelChunk() {
-	err := filepath.Walk(".", func(path string, f os.FileInfo, err error) error {
-		if f == nil {
-			return err
-		}
-		if f.IsDir() {
-			return nil
-		}
-		if strings.HasPrefix(path, outputFileName+".part.") {
-			chunkFiles = append(chunkFiles, path)
-		}
+func partialFileWalker(path string, f os.FileInfo, err error) error {
+	if f == nil {
+		return err
+	}
+	if f.IsDir() {
 		return nil
-	})
-	if err != nil {
+	}
+	if strings.HasPrefix(path, outputFileName+".part.") {
+		chunkFiles = append(chunkFiles, path)
+	}
+	return nil
+}
+
+func travelChunk() {
+	if err := filepath.Walk(".", partialFileWalker); err != nil {
 		fmt.Printf("ERROR:", err.Error())
 		return
 	}
@@ -238,8 +239,43 @@ func writeChunk() {
 	}
 }
 
-func main() {
+func downSingleFile(url string) bool {
 	var err error
+
+	bar = pb.New(contentLength)
+	bar.ShowSpeed = true
+	bar.Units = pb.U_BYTES
+	defer bar.Finish()
+
+	if debug {
+		fmt.Println("DEBUG: output filename", outputFileName)
+		fmt.Println("DEBUG: content length", contentLength)
+	}
+
+	outputFile, err = os.Create(outputFileName)
+	if err != nil {
+		log.Println("error create:", outputFile, ",link:", url)
+		return false
+	}
+	defer outputFile.Close()
+
+	ch = make(chan int)
+	if acceptRange && connNum != 1 {
+		splitWork(url)
+	} else {
+		fmt.Println("It does not accept range, use signal connection instead")
+		go startRoutine(0, 0, 0, 0, url)
+	}
+	bar.Start()
+	for i := 0; i < int(connNum); i++ {
+		<-ch
+	}
+	writeChunk()
+
+	return true
+}
+
+func main() {
 
 	if len(os.Args) == 1 {
 		fmt.Println("Usage: goaxel [options] url1 [url2] [url...]")
@@ -262,7 +298,7 @@ func main() {
 	}
 
 	if outputPath != "." {
-		err = os.Chdir(outputPath)
+		err := os.Chdir(outputPath)
 		if err != nil {
 			log.Fatal("Change Dir Failed :", outputPath, err)
 		}
@@ -272,37 +308,9 @@ func main() {
 		if len(urls) > 1 { // more than 1 url,can not set ouputfile name
 			outputFileName = defaultOutputFileName
 		}
-
 		chunkFiles = make([]string, 0)
+
 		parseUrl(urls[i])
-
-		bar = pb.New(contentLength)
-		bar.ShowSpeed = true
-		bar.Units = pb.U_BYTES
-		if debug {
-			fmt.Println("DEBUG: output filename", outputFileName)
-			fmt.Println("DEBUG: content length", contentLength)
-		}
-
-		outputFile, err = os.Create(outputFileName)
-		if err != nil {
-			log.Println("error create:", outputFile, ",link:", urls[i])
-			continue
-		}
-
-		ch = make(chan int)
-		if acceptRange && connNum != 1 {
-			splitWork(urls[i])
-		} else {
-			fmt.Println("It does not accept range, use signal connection instead")
-			go startRoutine(0, 0, 0, 0, urls[i])
-		}
-		bar.Start()
-		for i := 0; i < int(connNum); i++ {
-			<-ch
-		}
-		writeChunk()
-		outputFile.Close()
-		bar.Finish()
+		downSingleFile(urls[i])
 	}
 }
