@@ -46,6 +46,7 @@ var (
 	userAgent      string
 	debug          bool
 	urls           []string
+	outputPath     string
 	outputFileName string
 	outputFile     *os.File
 	contentLength  int
@@ -78,6 +79,7 @@ func init() {
 	flag.StringVar(&outputFileName, "o", defaultOutputFileName, "Specify local output file")
 	flag.StringVar(&userAgent, "U", appName, "Set user agent")
 	flag.BoolVar(&debug, "d", false, "Debug")
+	flag.StringVar(&outputPath, "p", ".", "Specify output file path")
 }
 
 func connCallback(n int) {
@@ -140,8 +142,8 @@ func parseUrl(strUrl string) (protocol string, host string, port int,
 	return
 }
 
-func travelChunk(path string) {
-	err := filepath.Walk(path, func(path string, f os.FileInfo, err error) error {
+func travelChunk() {
+	err := filepath.Walk(".", func(path string, f os.FileInfo, err error) error {
 		if f == nil {
 			return err
 		}
@@ -174,7 +176,7 @@ func fileSize(fileName string) (ret int64) {
 }
 
 func splitWork(url string) {
-	travelChunk(".")
+	travelChunk()
 	hasChunk := false
 	if len(chunkFiles) != 0 {
 		fmt.Println("Found chunk files, continue downloading...")
@@ -204,9 +206,9 @@ func splitWork(url string) {
 	}
 }
 
-func writeChunk(path string) {
+func writeChunk() {
 	if len(chunkFiles) == 0 {
-		travelChunk(".")
+		travelChunk()
 	}
 	for _, v := range chunkFiles {
 		chunkFile, _ := os.Open(v)
@@ -255,6 +257,14 @@ func main() {
 		return
 	}
 
+	if outputPath != "." {
+		err = os.Chdir(outputPath)
+		if err != nil {
+			log.Fatal("Change Dir Failed :", outputPath)
+			os.Exit(-1)
+		}
+	}
+
 	/* TODO: mirror support */
 	for i := 0; i < len(urls); i++ {
 		if len(urls) > 1 {
@@ -289,7 +299,7 @@ func main() {
 		for i := 0; i < int(connNum); i++ {
 			<-ch
 		}
-		writeChunk(".")
+		writeChunk()
 		outputFile.Close()
 		bar.Finish()
 	}
