@@ -32,8 +32,8 @@ import (
 	"strconv"
 	"strings"
 
+	"./conn"
 	"github.com/cheggaaa/pb"
-	"github.com/kumakichi/goaxel/conn"
 )
 
 const (
@@ -88,14 +88,13 @@ func connCallback(n int) {
 	bar.Add(n)
 }
 
-func startRoutine(range_from, range_to int, old_range_from int, chunksize int,
-	url string) {
+func startRoutine(range_from, range_to, alreadyHas int, url string) {
 	protocol, host, port, strPath, userName, passwd := parseUrl(url)
 	conn := &conn.CONN{Protocol: protocol, Host: host, Port: port,
 		UserAgent: userAgent, UserName: userName,
 		Passwd: passwd, Path: strPath, Debug: debug,
 		Callback: connCallback}
-	conn.Get(range_from, range_to, outputFileName, old_range_from, chunksize)
+	conn.Get(range_from, range_to, alreadyHas, outputFileName)
 	ch <- 1
 }
 
@@ -174,16 +173,16 @@ func fileSize(fileName string) int64 {
 
 func splitWork(url string) {
 	var filepath string
-	var remainder int
+	var startPos, remainder int
 
-	start := 0
 	eachPieceSize := contentLength / connNum
 	if eachPieceSize != 0 {
 		remainder = contentLength - eachPieceSize*connNum
 	}
 
 	for i := 0; i < connNum; i++ {
-		filepath = fmt.Sprintf("%s.part.%d", outputFileName, i*eachPieceSize)
+		startPos = i * eachPieceSize
+		filepath = fmt.Sprintf("%s.part.%d", outputFileName, startPos)
 		chunkFileSize := int(fileSize(filepath))
 		if chunkFileSize > 0 {
 			bar.Add(chunkFileSize)
@@ -192,10 +191,7 @@ func splitWork(url string) {
 		if i == connNum-1 { //the last piece,down addtional 'remainder',eg. split 9 to 4 + (4+'1')
 			eachPieceSize += remainder
 		}
-		go startRoutine(start+chunkFileSize, start+eachPieceSize-1, start,
-			chunkFileSize, url)
-
-		start += eachPieceSize
+		go startRoutine(startPos, startPos+eachPieceSize-1, chunkFileSize, url)
 	}
 }
 
@@ -255,7 +251,7 @@ func downSingleFile(url string) bool {
 		splitWork(url)
 	} else {
 		fmt.Println("It does not accept range, use signal connection instead")
-		go startRoutine(0, 0, 0, 0, url)
+		go startRoutine(0, 0, 0, url)
 	}
 
 	bar.Start()
