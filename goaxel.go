@@ -53,6 +53,24 @@ var (
     bar             *pb.ProgressBar
 )
 
+type SortString []string
+
+func (s SortString) Len() int {
+    return len(s)
+}
+
+func (s SortString) Swap(i, j int) {
+    s[i], s[j] = s[j], s[i]
+}
+
+func (s SortString) Less(i,j int) bool {
+    strI := strings.Split(s[i],".part.")
+    strJ := strings.Split(s[j],".part.")
+    numI,_ := strconv.Atoi(strI[1])
+    numJ,_ := strconv.Atoi(strJ[1])
+    return numI<numJ
+}
+
 func init() {
     flag.UintVar(&connNum, "n", 3, "Specify the number of connections")
     flag.StringVar(&outputFileName, "o", defaultOutputFileName, "Specify local output file")
@@ -131,7 +149,7 @@ func travelChunk(path string) {
         fmt.Printf("ERROR:", err.Error())
         return
     }
-    sort.Strings(chunkFiles)
+    sort.Sort(SortString(chunkFiles))
 }
 
 func fileSize(fileName string) (ret int64) {
