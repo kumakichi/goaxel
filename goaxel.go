@@ -44,6 +44,7 @@ const (
 var (
 	connNum        uint
 	userAgent      string
+	versionPrint   bool
 	debug          bool
 	urls           []string
 	outputPath     string
@@ -76,10 +77,11 @@ func (s SortString) Less(i, j int) bool {
 
 func init() {
 	flag.UintVar(&connNum, "n", 3, "Specify the number of connections")
-	flag.StringVar(&outputFileName, "o", defaultOutputFileName, "Specify local output file")
+	flag.StringVar(&outputFileName, "o", defaultOutputFileName, "Specify output file name. If more than 1 url specified,this option will be ignored")
 	flag.StringVar(&userAgent, "U", appName, "Set user agent")
-	flag.BoolVar(&debug, "d", false, "Debug")
+	flag.BoolVar(&debug, "d", false, "Print debug infomation")
 	flag.StringVar(&outputPath, "p", ".", "Specify output file path")
+	flag.BoolVar(&versionPrint, "V", false, "Print version and copyright")
 }
 
 func connCallback(n int) {
@@ -241,33 +243,33 @@ func main() {
 
 	if len(os.Args) == 1 {
 		fmt.Println("Usage: goaxel [options] url1 [url2] [url...]")
-		return
-	}
-
-	if os.Args[1] == "-V" || os.Args[1] == "-v" {
-		fmt.Println(fmt.Sprintf("%s Version 1.0", appName))
-		fmt.Println("Copyright 2013 Leslie Zhai")
+		fmt.Printf("	For more information,type %s -h\n", os.Args[0])
 		return
 	}
 
 	flag.Parse()
 	urls = flag.Args()
+
+	if versionPrint {
+		fmt.Println(fmt.Sprintf("%s Version 1.1", appName))
+		fmt.Println("Copyright (C) 2013 Leslie Zhai")
+		fmt.Println("Copyright (C) 2014 kumakichi")
+	}
+
 	if len(urls) == 0 {
-		fmt.Println("Invalid urls")
+		fmt.Println("You must specify at least one url to download")
 		return
 	}
 
 	if outputPath != "." {
 		err = os.Chdir(outputPath)
 		if err != nil {
-			log.Fatal("Change Dir Failed :", outputPath)
-			os.Exit(-1)
+			log.Fatal("Change Dir Failed :", outputPath, err)
 		}
 	}
 
-	/* TODO: mirror support */
 	for i := 0; i < len(urls); i++ {
-		if len(urls) > 1 {
+		if len(urls) > 1 { // more than 1 url,can not set ouputfile name
 			outputFileName = defaultOutputFileName
 		}
 
