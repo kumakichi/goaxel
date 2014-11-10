@@ -54,7 +54,7 @@ var (
 )
 
 func init() {
-    flag.UintVar(&connNum, "n", 3, "Specify maximum speed (bytes per second)")
+    flag.UintVar(&connNum, "n", 3, "Specify the number of connections")
     flag.StringVar(&outputFileName, "o", defaultOutputFileName, "Specify local output file")
     flag.StringVar(&userAgent, "U", appName, "Set user agent")
     flag.BoolVar(&debug, "d", false, "Debug")
