@@ -105,21 +105,21 @@ func (this *CONN) GetContentLength(fileName string) (length int, accept bool) {
 	return
 }
 
-func (this *CONN) Get(range_from, range_to, alreadyHas int, fileName string) {
+func (this *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) {
 	if this.Protocol == "http" {
 		if this.httpConnect() == false {
 			return
 		}
 		this.http.Callback = this.Callback
-		this.http.Get(this.Path, range_from+alreadyHas, range_to)
-		this.http.WriteToFile(fileName, range_from, alreadyHas)
+		this.http.Get(this.Path, rangeFrom+alreadyHas, pieceSize)
+		this.http.WriteToFile(fileName, rangeFrom, alreadyHas)
 	} else if this.Protocol == "https" {
 		if this.httpsConnect() == false {
 			return
 		}
 		this.https.Callback = this.Callback
-		this.https.Get(this.Path, range_from+alreadyHas, range_to)
-		this.https.WriteToFile(fileName, range_from, alreadyHas)
+		this.https.Get(this.Path, rangeFrom+alreadyHas, pieceSize)
+		this.https.WriteToFile(fileName, rangeFrom, alreadyHas)
 	} else if this.Protocol == "ftp" {
 		if this.ftpConnect() == false {
 			return
@@ -127,8 +127,8 @@ func (this *CONN) Get(range_from, range_to, alreadyHas int, fileName string) {
 		this.ftp.Callback = this.Callback
 		this.ftp.Pasv()
 		newConn := this.ftp.NewConnect()
-		this.ftp.Request(fmt.Sprintf("REST %d", range_from+alreadyHas))
+		this.ftp.Request(fmt.Sprintf("REST %d", rangeFrom+alreadyHas))
 		this.ftp.Request("RETR " + fileName)
-		this.ftp.WriteToFile(newConn, fileName, range_from+alreadyHas, alreadyHas)
+		this.ftp.WriteToFile(newConn, fileName, rangeFrom+alreadyHas, alreadyHas)
 	}
 }

@@ -32,8 +32,8 @@ import (
 	"strconv"
 	"strings"
 
-	"./conn"
 	"github.com/cheggaaa/pb"
+	"github.com/kumakichi/goaxel/conn"
 )
 
 const (
@@ -88,13 +88,13 @@ func connCallback(n int) {
 	bar.Add(n)
 }
 
-func startRoutine(range_from, range_to, alreadyHas int, url string) {
+func startRoutine(rangeFrom, pieceSize, alreadyHas int, url string) {
 	protocol, host, port, strPath, userName, passwd := parseUrl(url)
 	conn := &conn.CONN{Protocol: protocol, Host: host, Port: port,
 		UserAgent: userAgent, UserName: userName,
 		Passwd: passwd, Path: strPath, Debug: debug,
 		Callback: connCallback}
-	conn.Get(range_from, range_to, alreadyHas, outputFileName)
+	conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
 	ch <- 1
 }
 
@@ -191,7 +191,7 @@ func splitWork(url string) {
 		if i == connNum-1 { //the last piece,down addtional 'remainder',eg. split 9 to 4 + (4+'1')
 			eachPieceSize += remainder
 		}
-		go startRoutine(startPos, startPos+eachPieceSize-1, chunkFileSize, url)
+		go startRoutine(startPos, eachPieceSize, chunkFileSize, url)
 	}
 }
 
