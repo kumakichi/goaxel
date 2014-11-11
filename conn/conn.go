@@ -28,9 +28,6 @@ type CONN struct {
 	Path      string
 	Debug     bool
 	Callback  func(int)
-	http      HTTP
-	https     HTTPS
-	ftp       FTP
 }
 
 type DownLoader interface {
@@ -44,10 +41,8 @@ type DownLoader interface {
 	WriteToFile(fileName string, rangeFrom, offset int)
 }
 
-func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
-	length = 0
-	accept = false
-	var downLoader DownLoader
+func (c *CONN) Connect() (downLoader DownLoader, ok bool) {
+	ok = false
 
 	switch c.Protocol {
 	case "http":
@@ -59,7 +54,19 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 	}
 
 	downLoader.SetConnOpt(c.Debug, c.UserAgent, c.UserName, c.Passwd, c.Path)
-	if downLoader.Connect(c.Host, c.Port) == false {
+	if downLoader.Connect(c.Host, c.Port) == true {
+		ok = true
+	}
+
+	return
+}
+
+func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
+	length = 0
+	accept = false
+
+	downLoader, ok := c.Connect()
+	if false == ok {
 		return
 	}
 
@@ -75,19 +82,8 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 }
 
 func (c *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) {
-	var downLoader DownLoader
-
-	switch c.Protocol {
-	case "http":
-		downLoader = &HTTP{}
-	case "https":
-		downLoader = &HTTPS{}
-	case "ftp":
-		downLoader = &FTP{}
-	}
-
-	downLoader.SetConnOpt(c.Debug, c.UserAgent, c.UserName, c.Passwd, c.Path)
-	if downLoader.Connect(c.Host, c.Port) == false {
+	downLoader, ok := c.Connect()
+	if false == ok {
 		return
 	}
 

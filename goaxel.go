@@ -33,8 +33,7 @@ import (
 	"strings"
 
 	"github.com/cheggaaa/pb"
-	//"github.com/kumakichi/goaxel/conn"
-	"./conn"
+	"github.com/kumakichi/goaxel/conn"
 )
 
 const (
