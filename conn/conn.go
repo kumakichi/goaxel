@@ -111,6 +111,6 @@ func (this *CONN) Get(range_from, range_to int, fileName string, old_range_from 
         newConn := this.ftp.NewConnect()
         this.ftp.Request(fmt.Sprintf("REST %d", range_from))
         this.ftp.Request("RETR " + fileName)
-        this.ftp.WriteToFile(newConn, fileName, range_from, chunksize)
+        this.ftp.WriteToFile(newConn, fileName, range_from, range_to, chunksize)
     }
 }

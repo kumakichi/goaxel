@@ -85,7 +85,8 @@ func (this *FTP) Login(user, passwd string) {
 	this.passwd = passwd
 }
 
-func (this *FTP) WriteToFile(conn net.Conn, fileName string, old_range_from, offset int) {
+func (this *FTP) WriteToFile(conn net.Conn, fileName string, old_range_from, range_to, offset int) {
+    needLen := range_to - old_range_from + 1
     this.offset = offset
     defer conn.Close()
     data := make([]byte, 102400)
@@ -98,12 +99,15 @@ func (this *FTP) WriteToFile(conn net.Conn, fileName string, old_range_from, off
         if err != nil {
             if err != io.EOF { panic(err) }
         }
+        if this.offset + n > needLen {
+            n = needLen - this.offset
+        }
         f.WriteAt(data[:n], int64(this.offset))
         if this.Callback != nil {
-            this.Callback(this.offset)
+            this.Callback(n)
         }
         this.offset += n
-        if err == io.EOF { return }
+        if err == io.EOF || this.offset == needLen { return }
     }
     return
 }

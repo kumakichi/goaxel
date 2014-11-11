@@ -272,4 +272,5 @@ func main() {
         <-ch
     }
     writeChunk(".")
+    bar.Finish()
 }
