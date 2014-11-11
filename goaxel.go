@@ -41,6 +41,17 @@ const (
 	defaultOutputFileName string = "default"
 )
 
+type goAxelUrl struct {
+	protocol      string
+	port          int
+	userName      string
+	passwd        string
+	path          string
+	host          string
+	contentLength int
+	acceptRange   bool
+}
+
 var (
 	connNum        int
 	userAgent      string
@@ -90,18 +101,16 @@ func connCallback(n int) {
 	bar.Add(n)
 }
 
-func startRoutine(rangeFrom, pieceSize, alreadyHas int, url string) {
-	protocol, host, port, strPath, userName, passwd := parseUrl(url)
-	conn := &conn.CONN{Protocol: protocol, Host: host, Port: port,
-		UserAgent: userAgent, UserName: userName,
-		Passwd: passwd, Path: strPath, Debug: debug,
+func startRoutine(rangeFrom, pieceSize, alreadyHas int, u goAxelUrl) {
+	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
+		UserAgent: userAgent, UserName: u.userName,
+		Passwd: u.passwd, Path: u.path, Debug: debug,
 		Callback: connCallback}
 	conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
 	ch <- 1
 }
 
-func parseUrl(urlStr string) (protocol string, host string, port int,
-	strPath string, userName string, passwd string) {
+func parseUrl(urlStr string) (g goAxelUrl, e error) {
 	ports := map[string]int{"http": 80, "https": 443, "ftp": 21}
 
 	if ok := strings.Contains(urlStr, "//"); ok != true {
@@ -111,36 +120,36 @@ func parseUrl(urlStr string) (protocol string, host string, port int,
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		fmt.Println("ERROR:", err.Error())
+		e = err
 		return
 	}
 
-	protocol = u.Scheme
-	port = ports[protocol]
+	g.protocol = u.Scheme
+	g.port = ports[g.protocol]
 
 	if userinfo := u.User; userinfo != nil {
-		userName = userinfo.Username()
-		passwd, _ = userinfo.Password()
+		g.userName = userinfo.Username()
+		g.passwd, _ = userinfo.Password()
 	}
 
-	if strPath = u.Path; strPath == "" { // links like : http://www.google.com
-		strPath = "/"
+	if g.path = u.Path; g.path == "" { // links like : http://www.google.com
+		g.path = "/"
+	} else if outputFileName == defaultOutputFileName {
+		outputFileName = path.Base(g.path)
 	}
 
-	host = u.Host
-	pos := strings.Index(host, ":")
+	g.host = u.Host
+	pos := strings.Index(g.host, ":")
 	if pos != -1 { // user defined port
-		port, _ = strconv.Atoi(host[pos+1:])
-		host = host[0:pos]
+		g.port, _ = strconv.Atoi(g.host[pos+1:])
+		g.host = g.host[0:pos]
 	}
 
-	conn := &conn.CONN{Protocol: protocol, Host: host, Port: port,
-		UserAgent: userAgent, UserName: userName,
-		Passwd: passwd, Path: strPath, Debug: debug}
+	conn := &conn.CONN{Protocol: g.protocol, Host: g.host, Port: g.port,
+		UserAgent: userAgent, UserName: g.userName,
+		Passwd: g.passwd, Path: g.path, Debug: debug}
+	g.contentLength, g.acceptRange = conn.GetContentLength(outputFileName)
 
-	if outputFileName == defaultOutputFileName && strPath != "/" {
-		outputFileName = path.Base(strPath)
-	}
-	contentLength, acceptRange = conn.GetContentLength(outputFileName)
 	return
 }
 
@@ -172,9 +181,14 @@ func fileSize(fileName string) int64 {
 	return 0
 }
 
-func splitWork(url string) {
+func splitWork(u goAxelUrl) {
 	var filepath string
 	var startPos, remainder int
+
+	if acceptRange == false || connNum == 1 { //need not split work
+		go startRoutine(0, 0, 0, u)
+		return
+	}
 
 	eachPieceSize := contentLength / connNum
 	if eachPieceSize != 0 {
@@ -194,7 +208,7 @@ func splitWork(url string) {
 		if i == connNum-1 {
 			eachPieceSize += remainder
 		}
-		go startRoutine(startPos, eachPieceSize, alreadyHas, url)
+		go startRoutine(startPos, eachPieceSize, alreadyHas, u)
 	}
 }
 
@@ -232,6 +246,12 @@ func writeChunk() {
 func downSingleFile(url string) bool {
 	var err error
 
+	u, err := parseUrl(url)
+	if err != nil {
+		return false
+	}
+	contentLength, acceptRange = u.contentLength, u.acceptRange
+
 	bar = pb.New(contentLength)
 	bar.ShowSpeed = true
 	bar.Units = pb.U_BYTES
@@ -250,14 +270,9 @@ func downSingleFile(url string) bool {
 	defer outputFile.Close()
 
 	ch = make(chan int)
-	if acceptRange && connNum != 1 {
-		splitWork(url)
-	} else {
-		fmt.Println("It does not accept range, use signal connection instead")
-		go startRoutine(0, 0, 0, url)
-	}
-
+	splitWork(u)
 	bar.Start()
+
 	for i := 0; i < connNum; i++ {
 		<-ch
 	}
@@ -298,9 +313,7 @@ func main() {
 		if len(urls) > 1 { // more than 1 url,can not set ouputfile name
 			outputFileName = defaultOutputFileName
 		}
-		chunkFiles = make([]string, 0)
-
-		parseUrl(urls[i]) //get contentLength and acceptRange
+		chunkFiles = make([]string, 0) // reset it before downloading any url
 		downSingleFile(urls[i])
 	}
 }
