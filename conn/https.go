@@ -96,8 +96,9 @@ func (https *HTTPS) Response() (code int, message string) {
 	return
 }
 
-func (https *HTTPS) WriteToFile(outputFileName string, old_range_from int, chunkSize int) {
-	https.offset = chunkSize
+func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
+	pieceSize, alreadyHas int) {
+	https.offset = alreadyHas
 	defer https.conn.Close()
 	resp := ""
 	data := make([]byte, 1)
@@ -126,7 +127,7 @@ func (https *HTTPS) WriteToFile(outputFileName string, old_range_from int, chunk
 	if https.Debug {
 		fmt.Println("DEBUG:", resp)
 	}
-	chunkName := fmt.Sprintf("%s.part.%d", outputFileName, old_range_from)
+	chunkName := fmt.Sprintf("%s.part.%d", outputName, rangeFrom)
 	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
 	defer f.Close()
 	if err != nil {

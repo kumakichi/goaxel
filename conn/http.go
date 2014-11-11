@@ -100,8 +100,9 @@ func (http *HTTP) Response() (code int, message string) {
 	return
 }
 
-func (http *HTTP) WriteToFile(outputFileName string, old_range_from int, chunkSize int) {
-	http.offset = chunkSize
+func (http *HTTP) WriteToFile(outputName string, rangeFrom,
+	pieceSize, alreadyHas int) {
+	http.offset = alreadyHas
 	defer http.conn.Close()
 	resp := ""
 	data := make([]byte, 1)
@@ -130,7 +131,7 @@ func (http *HTTP) WriteToFile(outputFileName string, old_range_from int, chunkSi
 	if http.Debug {
 		fmt.Println("DEBUG:", resp)
 	}
-	chunkName := fmt.Sprintf("%s.part.%d", outputFileName, old_range_from)
+	chunkName := fmt.Sprintf("%s.part.%d", outputName, rangeFrom)
 	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
 	defer f.Close()
 	if err != nil {

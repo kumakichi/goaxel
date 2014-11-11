@@ -38,7 +38,7 @@ type DownLoader interface {
 	SetConnOpt(debug bool, userAgent, userName, userPasswd, urlPath string)
 	Connect(host string, port int) bool
 	SetCallBack(cb func(int))
-	WriteToFile(fileName string, rangeFrom, offset int)
+	WriteToFile(fileName string, rangeFrom, pieceSize, offset int)
 }
 
 func (c *CONN) Connect() (downLoader DownLoader, ok bool) {
@@ -89,5 +89,5 @@ func (c *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) {
 
 	downLoader.SetCallBack(c.Callback)
 	downLoader.Get(c.Path, rangeFrom+alreadyHas, pieceSize)
-	downLoader.WriteToFile(fileName, rangeFrom, alreadyHas)
+	downLoader.WriteToFile(fileName, rangeFrom, pieceSize, alreadyHas)
 }

@@ -32,8 +32,9 @@ import (
 	"strconv"
 	"strings"
 
+	"./conn"
 	"github.com/cheggaaa/pb"
-	"github.com/kumakichi/goaxel/conn"
+	//"github.com/kumakichi/goaxel/conn"
 )
 
 const (
@@ -190,6 +191,7 @@ func splitWork(u goAxelUrl) {
 		return
 	}
 
+	fmt.Println("dsjkalfdjalsf:", contentLength, connNum)
 	eachPieceSize := contentLength / connNum
 	if eachPieceSize != 0 {
 		remainder = contentLength - eachPieceSize*connNum

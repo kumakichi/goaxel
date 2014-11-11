@@ -105,33 +105,43 @@ func (ftp *FTP) Login(user, passwd string) {
 	ftp.passwd = passwd
 }
 
-func (ftp *FTP) WriteToFile(fileName string, rangeFrom, offset int) {
+func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas int) {
 	conn := ftp.NewConnect()
-	ftp.Request(fmt.Sprintf("REST %d", rangeFrom+offset))
+	ftp.Request(fmt.Sprintf("REST %d", rangeFrom+alreadyHas))
 	ftp.Request("RETR " + fileName)
-	ftp.offset = offset
+
+	var writeLen int
+	ftp.offset = alreadyHas
+	buff := make([]byte, 102400)
 	defer conn.Close()
 
-	data := make([]byte, 102400)
-	chunkName := fmt.Sprintf("%s.part.%d", fileName, rangeFrom+offset)
+	chunkName := fmt.Sprintf("%s.part.%d", fileName, rangeFrom+alreadyHas)
 	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
 	defer f.Close()
 	if err != nil {
 		panic(err)
 	}
+
 	for {
-		n, err := conn.Read(data)
+		n, err := conn.Read(buff)
 		if err != nil {
 			if err != io.EOF {
 				panic(err)
 			}
 		}
-		f.WriteAt(data[:n], int64(ftp.offset))
-		if ftp.Callback != nil {
-			ftp.Callback(ftp.offset)
+
+		writeLen = n
+		if ftp.offset+n > pieceSize {
+			writeLen = pieceSize - ftp.offset
 		}
-		ftp.offset += n
-		if err == io.EOF {
+
+		f.WriteAt(buff[:writeLen], int64(ftp.offset))
+
+		if ftp.Callback != nil {
+			ftp.Callback(writeLen)
+		}
+		ftp.offset += writeLen
+		if err == io.EOF || ftp.offset == pieceSize {
 			return
 		}
 	}
