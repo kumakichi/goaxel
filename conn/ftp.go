@@ -222,11 +222,11 @@ func (ftp *FTP) Quit() {
 	ftp.conn.Close()
 }
 
-func (ftp *FTP) SetConnOpt(debug bool, userAgent, userName, userPasswd, urlPath string) {
-	ftp.Debug = debug
-	ftp.user = userName
-	ftp.passwd = userPasswd
-	ftp.path = urlPath
+func (ftp *FTP) SetConnOpt(c *CONN) {
+	ftp.Debug = c.Debug
+	ftp.user = c.UserName
+	ftp.passwd = c.Passwd
+	ftp.path = c.Path
 }
 
 func (ftp *FTP) SetCallBack(cb func(int)) {

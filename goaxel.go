@@ -66,6 +66,7 @@ var (
 	chunkFiles     []string
 	ch             chan int
 	bar            *pb.ProgressBar
+	cookieFile     string
 )
 
 type SortString []string
@@ -95,6 +96,8 @@ func init() {
 	flag.BoolVar(&debug, "d", false, "Print debug infomation")
 	flag.StringVar(&outputPath, "p", ".", "Specify output file path")
 	flag.BoolVar(&versionPrint, "V", false, "Print version and copyright")
+	flag.StringVar(&cookieFile, "cookie", "", `Cookie file in the format 
+		originally used by Netscape's cookies.txt`)
 }
 
 func connCallback(n int) {

@@ -35,7 +35,7 @@ type DownLoader interface {
 	Response() (code int, message string)
 	IsAcceptRange() bool
 	GetContentLength(path string) int
-	SetConnOpt(debug bool, userAgent, userName, userPasswd, urlPath string)
+	SetConnOpt(c *CONN)
 	Connect(host string, port int) bool
 	SetCallBack(cb func(int))
 	WriteToFile(fileName string, rangeFrom, pieceSize, offset int)
@@ -53,7 +53,7 @@ func (c *CONN) Connect() (downLoader DownLoader, ok bool) {
 		downLoader = &FTP{}
 	}
 
-	downLoader.SetConnOpt(c.Debug, c.UserAgent, c.UserName, c.Passwd, c.Path)
+	downLoader.SetConnOpt(c)
 	if downLoader.Connect(c.Host, c.Port) == true {
 		ok = true
 	}

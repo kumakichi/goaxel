@@ -201,9 +201,9 @@ func (https *HTTPS) GetContentLength(junkVar string) int {
 	return ret
 }
 
-func (https *HTTPS) SetConnOpt(debug bool, userAgent, userName, userPasswd, urlPath string) {
-	https.Debug = debug
-	https.UserAgent = userAgent
+func (https *HTTPS) SetConnOpt(c *CONN) {
+	https.Debug = c.Debug
+	https.UserAgent = c.UserAgent
 }
 
 func (https *HTTPS) SetCallBack(cb func(int)) {
