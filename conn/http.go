@@ -29,7 +29,6 @@ import (
 )
 
 type HTTP struct {
-	Protocol       string
 	host           string
 	port           int
 	user           string
@@ -189,7 +188,7 @@ func (http *HTTP) IsAcceptRange() bool {
 	return ret
 }
 
-func (http *HTTP) GetContentLength() int {
+func (http *HTTP) GetContentLength(junkVar string) int {
 	ret := 0
 	r, err := regexp.Compile(`Content-Length: (.*)`)
 	if err != nil {
@@ -203,4 +202,9 @@ func (http *HTTP) GetContentLength() int {
 		ret, http.Error = strconv.Atoi(s)
 	}
 	return ret
+}
+
+func (http *HTTP) SetConnOpt(debug bool, userAgent string) {
+	http.Debug = debug
+	http.UserAgent = userAgent
 }

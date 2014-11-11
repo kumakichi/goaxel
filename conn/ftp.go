@@ -188,3 +188,7 @@ func (ftp *FTP) Quit() {
 	ftp.Request("QUIT")
 	ftp.conn.Close()
 }
+
+func (ftp *FTP) SetConnOpt(debug bool, userAgent string) {
+	ftp.Debug = debug
+}

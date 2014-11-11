@@ -29,7 +29,6 @@ import (
 )
 
 type HTTPS struct {
-	Protocol       string
 	host           string
 	port           int
 	user           string
@@ -185,7 +184,7 @@ func (https *HTTPS) IsAcceptRange() bool {
 	return ret
 }
 
-func (https *HTTPS) GetContentLength() int {
+func (https *HTTPS) GetContentLength(junkVar string) int {
 	ret := 0
 	r, err := regexp.Compile(`Content-Length: (.*)`)
 	if err != nil {
@@ -199,4 +198,9 @@ func (https *HTTPS) GetContentLength() int {
 		ret, https.Error = strconv.Atoi(s)
 	}
 	return ret
+}
+
+func (https *HTTPS) SetConnOpt(debug bool, userAgent string) {
+	https.Debug = debug
+	https.UserAgent = userAgent
 }
