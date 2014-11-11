@@ -26,6 +26,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 )
@@ -33,6 +34,7 @@ import (
 type FTP struct {
 	host     string
 	port     int
+	path     string
 	user     string
 	passwd   string
 	pasv     int
@@ -75,6 +77,24 @@ func (ftp *FTP) Connect(host string, port int) bool {
 	ftp.Response()
 	ftp.host = host
 	ftp.port = port
+
+	//for interface begin
+	if ftp.user == "" {
+		ftp.user = "anonymous"
+	}
+	ftp.Login(ftp.user, ftp.passwd)
+	if ftp.Code == 530 {
+		fmt.Println("ERROR: login failure")
+		return false
+	}
+	ftp.Request("TYPE I")
+	dir := path.Dir(ftp.path)
+	if dir != "/" {
+		dir += "/"
+	}
+	ftp.Cwd(dir)
+	//for interface done
+
 	return true
 }
 
@@ -85,11 +105,15 @@ func (ftp *FTP) Login(user, passwd string) {
 	ftp.passwd = passwd
 }
 
-func (ftp *FTP) WriteToFile(conn net.Conn, fileName string, old_range_from, offset int) {
+func (ftp *FTP) WriteToFile(fileName string, rangeFrom, offset int) {
+	conn := ftp.NewConnect()
+	ftp.Request(fmt.Sprintf("REST %d", rangeFrom+offset))
+	ftp.Request("RETR " + fileName)
 	ftp.offset = offset
 	defer conn.Close()
+
 	data := make([]byte, 102400)
-	chunkName := fmt.Sprintf("%s.part.%d", fileName, old_range_from)
+	chunkName := fmt.Sprintf("%s.part.%d", fileName, rangeFrom+offset)
 	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
 	defer f.Close()
 	if err != nil {
@@ -115,6 +139,7 @@ func (ftp *FTP) WriteToFile(conn net.Conn, fileName string, old_range_from, offs
 }
 
 func (ftp *FTP) Get(url string, rangeFrom, pieceSize int) {
+	ftp.Pasv()
 }
 
 func (ftp *FTP) IsAcceptRange() bool {
@@ -189,6 +214,13 @@ func (ftp *FTP) Quit() {
 	ftp.conn.Close()
 }
 
-func (ftp *FTP) SetConnOpt(debug bool, userAgent string) {
+func (ftp *FTP) SetConnOpt(debug bool, userAgent, userName, userPasswd, urlPath string) {
 	ftp.Debug = debug
+	ftp.user = userName
+	ftp.passwd = userPasswd
+	ftp.path = urlPath
+}
+
+func (ftp *FTP) SetCallBack(cb func(int)) {
+	ftp.Callback = cb
 }

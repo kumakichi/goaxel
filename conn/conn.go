@@ -18,11 +18,6 @@
 
 package conn
 
-import (
-	"fmt"
-	"path"
-)
-
 type CONN struct {
 	Protocol  string
 	Host      string
@@ -43,44 +38,10 @@ type DownLoader interface {
 	Response() (code int, message string)
 	IsAcceptRange() bool
 	GetContentLength(path string) int
-	SetConnOpt(debug bool, userAgent string)
+	SetConnOpt(debug bool, userAgent, userName, userPasswd, urlPath string)
 	Connect(host string, port int) bool
-}
-
-func (c *CONN) httpConnect() bool {
-	c.http.Debug = c.Debug
-	c.http.UserAgent = c.UserAgent
-
-	return c.http.Connect(c.Host, c.Port)
-}
-
-func (c *CONN) httpsConnect() bool {
-	c.https.Debug = c.Debug
-	c.https.UserAgent = c.UserAgent
-
-	return c.https.Connect(c.Host, c.Port)
-}
-
-func (c *CONN) ftpConnect() bool {
-	c.ftp.Debug = c.Debug
-	if c.ftp.Connect(c.Host, c.Port) == false {
-		return false
-	}
-	if c.UserName == "" {
-		c.UserName = "anonymous"
-	}
-	c.ftp.Login(c.UserName, c.Passwd)
-	if c.ftp.Code == 530 {
-		fmt.Println("ERROR: login failure")
-		return false
-	}
-	c.ftp.Request("TYPE I")
-	dir := path.Dir(c.Path)
-	if dir != "/" {
-		dir += "/"
-	}
-	c.ftp.Cwd(dir)
-	return true
+	SetCallBack(cb func(int))
+	WriteToFile(fileName string, rangeFrom, offset int)
 }
 
 func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
@@ -97,7 +58,7 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 		downLoader = &FTP{}
 	}
 
-	downLoader.SetConnOpt(c.Debug, c.UserAgent)
+	downLoader.SetConnOpt(c.Debug, c.UserAgent, c.UserName, c.Passwd, c.Path)
 	if downLoader.Connect(c.Host, c.Port) == false {
 		return
 	}
@@ -114,29 +75,23 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 }
 
 func (c *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) {
-	if c.Protocol == "http" {
-		if c.httpConnect() == false {
-			return
-		}
-		c.http.Callback = c.Callback
-		c.http.Get(c.Path, rangeFrom+alreadyHas, pieceSize)
-		c.http.WriteToFile(fileName, rangeFrom, alreadyHas)
-	} else if c.Protocol == "https" {
-		if c.httpsConnect() == false {
-			return
-		}
-		c.https.Callback = c.Callback
-		c.https.Get(c.Path, rangeFrom+alreadyHas, pieceSize)
-		c.https.WriteToFile(fileName, rangeFrom, alreadyHas)
-	} else if c.Protocol == "ftp" {
-		if c.ftpConnect() == false {
-			return
-		}
-		c.ftp.Callback = c.Callback
-		c.ftp.Pasv()
-		newConn := c.ftp.NewConnect()
-		c.ftp.Request(fmt.Sprintf("REST %d", rangeFrom+alreadyHas))
-		c.ftp.Request("RETR " + fileName)
-		c.ftp.WriteToFile(newConn, fileName, rangeFrom+alreadyHas, alreadyHas)
+	var downLoader DownLoader
+
+	switch c.Protocol {
+	case "http":
+		downLoader = &HTTP{}
+	case "https":
+		downLoader = &HTTPS{}
+	case "ftp":
+		downLoader = &FTP{}
 	}
+
+	downLoader.SetConnOpt(c.Debug, c.UserAgent, c.UserName, c.Passwd, c.Path)
+	if downLoader.Connect(c.Host, c.Port) == false {
+		return
+	}
+
+	downLoader.SetCallBack(c.Callback)
+	downLoader.Get(c.Path, rangeFrom+alreadyHas, pieceSize)
+	downLoader.WriteToFile(fileName, rangeFrom, alreadyHas)
 }

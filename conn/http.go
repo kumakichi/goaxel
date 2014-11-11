@@ -204,7 +204,11 @@ func (http *HTTP) GetContentLength(junkVar string) int {
 	return ret
 }
 
-func (http *HTTP) SetConnOpt(debug bool, userAgent string) {
+func (http *HTTP) SetConnOpt(debug bool, userAgent, userName, userPasswd, urlPath string) {
 	http.Debug = debug
 	http.UserAgent = userAgent
+}
+
+func (http *HTTP) SetCallBack(cb func(int)) {
+	http.Callback = cb
 }
