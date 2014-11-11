@@ -102,6 +102,12 @@ func startRoutine(rangeFrom, pieceSize, alreadyHas int, url string) {
 
 func parseUrl(urlStr string) (protocol string, host string, port int,
 	strPath string, userName string, passwd string) {
+	ports := map[string]int{"http": 80, "https": 443, "ftp": 21}
+
+	if ok := strings.Contains(urlStr, "//"); ok != true {
+		urlStr = "http://" + urlStr //scheme not specified,treat it as http
+	}
+
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		fmt.Println("ERROR:", err.Error())
@@ -109,28 +115,20 @@ func parseUrl(urlStr string) (protocol string, host string, port int,
 	}
 
 	protocol = u.Scheme
-	switch protocol {
-	case "http":
-		port = 80
-	case "https":
-		port = 443
-	case "ftp":
-		port = 21
-	}
-
-	host = u.Host
+	port = ports[protocol]
 
 	if userinfo := u.User; userinfo != nil {
 		userName = userinfo.Username()
 		passwd, _ = userinfo.Password()
 	}
 
-	if strPath = u.Path; strPath == "" {
+	if strPath = u.Path; strPath == "" { // links like : http://www.google.com
 		strPath = "/"
 	}
 
+	host = u.Host
 	pos := strings.Index(host, ":")
-	if pos != -1 {
+	if pos != -1 { // user defined port
 		port, _ = strconv.Atoi(host[pos+1:])
 		host = host[0:pos]
 	}
@@ -139,7 +137,7 @@ func parseUrl(urlStr string) (protocol string, host string, port int,
 		UserAgent: userAgent, UserName: userName,
 		Passwd: passwd, Path: strPath, Debug: debug}
 
-	if outputFileName == defaultOutputFileName && path.Base(strPath) != "/" {
+	if outputFileName == defaultOutputFileName && strPath != "/" {
 		outputFileName = path.Base(strPath)
 	}
 	contentLength, acceptRange = conn.GetContentLength(outputFileName)
@@ -186,16 +184,17 @@ func splitWork(url string) {
 	for i := 0; i < connNum; i++ {
 		startPos = i * eachPieceSize
 		filepath = fmt.Sprintf("%s.part.%d", outputFileName, startPos)
-		chunkFileSize := int(fileSize(filepath))
-		if chunkFileSize > 0 {
-			bar.Add(chunkFileSize)
+
+		alreadyHas := int(fileSize(filepath))
+		if alreadyHas > 0 {
+			bar.Add(alreadyHas)
 		}
 
 		//the last piece,down addtional 'remainder',eg. split 9 to 4 + (4+'1')
 		if i == connNum-1 {
 			eachPieceSize += remainder
 		}
-		go startRoutine(startPos, eachPieceSize, chunkFileSize, url)
+		go startRoutine(startPos, eachPieceSize, alreadyHas, url)
 	}
 }
 
@@ -301,7 +300,7 @@ func main() {
 		}
 		chunkFiles = make([]string, 0)
 
-		parseUrl(urls[i])
+		parseUrl(urls[i]) //get contentLength and acceptRange
 		downSingleFile(urls[i])
 	}
 }
