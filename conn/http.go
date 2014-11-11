@@ -48,32 +48,34 @@ const (
 	buffer_size int = 102400
 )
 
-func (this *HTTP) Connect(host string, port int) bool {
+func (http *HTTP) Connect(host string, port int) bool {
 	address := fmt.Sprintf("%s:%d", host, port)
-	this.conn, this.Error = net.Dial("tcp", address)
-	if this.Error != nil {
-		fmt.Println("ERROR: ", this.Error.Error())
+	http.conn, http.Error = net.Dial("tcp", address)
+	if http.Error != nil {
+		fmt.Println("ERROR: ", http.Error.Error())
 		return false
 	}
-	this.host = host
-	this.port = port
+	http.host = host
+	http.port = port
 	return true
 }
 
-func (this *HTTP) AddHeader(header string) {
-	this.header += header + "\r\n"
+func (http *HTTP) AddHeader(header string) {
+	http.header += header + "\r\n"
 }
 
 /* TODO: get this header */
-func (this *HTTP) Response() {
-	defer this.conn.Close()
+func (http *HTTP) Response() (code int, message string) {
+	code = -1
+	message = "NOT OK"
+	defer http.conn.Close()
 	data := make([]byte, 1)
 	for i := 0; ; {
-		n, err := this.conn.Read(data)
+		n, err := http.conn.Read(data)
 		if err != nil {
 			if err != io.EOF {
-				this.Error = err
-				fmt.Println("ERROR:", this.Error.Error())
+				http.Error = err
+				fmt.Println("ERROR:", http.Error.Error())
 				return
 			}
 		}
@@ -87,26 +89,30 @@ func (this *HTTP) Response() {
 		} else {
 			i++
 		}
-		this.headerResponse += string(data[:n])
+		http.headerResponse += string(data[:n])
 	}
-	if this.Debug {
-		fmt.Println("DEBUG:", this.headerResponse)
+	if http.Debug {
+		fmt.Println("DEBUG:", http.headerResponse)
 	}
-	this.conn.Close()
+	http.conn.Close()
+
+	code = 200
+	message = "OK"
+	return
 }
 
-func (this *HTTP) WriteToFile(outputFileName string, old_range_from int, chunkSize int) {
-	this.offset = chunkSize
-	defer this.conn.Close()
+func (http *HTTP) WriteToFile(outputFileName string, old_range_from int, chunkSize int) {
+	http.offset = chunkSize
+	defer http.conn.Close()
 	resp := ""
 	data := make([]byte, 1)
 	for i := 0; ; {
 		data := make([]byte, 1)
-		n, err := this.conn.Read(data)
+		n, err := http.conn.Read(data)
 		if err != nil {
 			if err != io.EOF {
-				this.Error = err
-				fmt.Println("ERROR:", this.Error.Error())
+				http.Error = err
+				fmt.Println("ERROR:", http.Error.Error())
 				return
 			}
 		}
@@ -122,7 +128,7 @@ func (this *HTTP) WriteToFile(outputFileName string, old_range_from int, chunkSi
 		}
 		resp += string(data[:n])
 	}
-	if this.Debug {
+	if http.Debug {
 		fmt.Println("DEBUG:", resp)
 	}
 	chunkName := fmt.Sprintf("%s.part.%d", outputFileName, old_range_from)
@@ -133,19 +139,19 @@ func (this *HTTP) WriteToFile(outputFileName string, old_range_from int, chunkSi
 	}
 	data = make([]byte, buffer_size)
 	for {
-		n, err := this.conn.Read(data)
+		n, err := http.conn.Read(data)
 		if err != nil {
 			if err != io.EOF {
-				this.Error = err
-				fmt.Println("ERROR:", this.Error.Error())
+				http.Error = err
+				fmt.Println("ERROR:", http.Error.Error())
 				return
 			}
 		}
-		f.WriteAt(data[:n], int64(this.offset))
-		if this.Callback != nil {
-			this.Callback(n)
+		f.WriteAt(data[:n], int64(http.offset))
+		if http.Callback != nil {
+			http.Callback(n)
 		}
-		this.offset += n
+		http.offset += n
 		if err == io.EOF {
 			return
 		}
@@ -153,48 +159,48 @@ func (this *HTTP) WriteToFile(outputFileName string, old_range_from int, chunkSi
 	return
 }
 
-func (this *HTTP) Get(url string, rangeFrom, pieceSize int) {
-	this.AddHeader(fmt.Sprintf("GET %s HTTP/1.0", url))
-	this.AddHeader(fmt.Sprintf("Host: %s", this.host))
+func (http *HTTP) Get(url string, rangeFrom, pieceSize int) {
+	http.AddHeader(fmt.Sprintf("GET %s HTTP/1.0", url))
+	http.AddHeader(fmt.Sprintf("Host: %s", http.host))
 	if pieceSize == 0 {
-		this.AddHeader(fmt.Sprintf("Range: bytes=0-"))
+		http.AddHeader(fmt.Sprintf("Range: bytes=0-"))
 	} else {
-		this.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", rangeFrom, rangeFrom+pieceSize-1))
+		http.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", rangeFrom, rangeFrom+pieceSize-1))
 	}
-	this.AddHeader(fmt.Sprintf("User-Agent: %s", this.UserAgent))
-	this.AddHeader("")
-	if this.Debug {
-		fmt.Println("DEBUG:", this.header)
+	http.AddHeader(fmt.Sprintf("User-Agent: %s", http.UserAgent))
+	http.AddHeader("")
+	if http.Debug {
+		fmt.Println("DEBUG:", http.header)
 	}
-	_, this.Error = this.conn.Write([]byte(this.header))
-	if this.Error != nil {
-		fmt.Println("ERROR: ", this.Error.Error())
+	_, http.Error = http.conn.Write([]byte(http.header))
+	if http.Error != nil {
+		fmt.Println("ERROR: ", http.Error.Error())
 	}
 }
 
-func (this *HTTP) IsAcceptRange() bool {
+func (http *HTTP) IsAcceptRange() bool {
 	ret := false
 
-	if strings.Contains(this.headerResponse, "Content-Range") ||
-		strings.Contains(this.headerResponse, "Accept-Ranges") {
+	if strings.Contains(http.headerResponse, "Content-Range") ||
+		strings.Contains(http.headerResponse, "Accept-Ranges") {
 		ret = true
 	}
 
 	return ret
 }
 
-func (this *HTTP) GetContentLength() int {
+func (http *HTTP) GetContentLength() int {
 	ret := 0
 	r, err := regexp.Compile(`Content-Length: (.*)`)
 	if err != nil {
-		this.Error = err
+		http.Error = err
 		fmt.Println("ERROR: ", err.Error())
 		return ret
 	}
-	result := r.FindStringSubmatch(this.headerResponse)
+	result := r.FindStringSubmatch(http.headerResponse)
 	if len(result) != 0 {
 		s := strings.TrimSuffix(result[1], "\r")
-		ret, this.Error = strconv.Atoi(s)
+		ret, http.Error = strconv.Atoi(s)
 	}
 	return ret
 }

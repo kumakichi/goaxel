@@ -33,7 +33,8 @@ import (
 	"strings"
 
 	"github.com/cheggaaa/pb"
-	"github.com/kumakichi/goaxel/conn"
+	//"github.com/kumakichi/goaxel/conn"
+	"./conn"
 )
 
 const (
@@ -77,7 +78,9 @@ func (s SortString) Less(i, j int) bool {
 
 func init() {
 	flag.IntVar(&connNum, "n", 3, "Specify the number of connections")
-	flag.StringVar(&outputFileName, "o", defaultOutputFileName, "Specify output file name. If more than 1 url specified,this option will be ignored")
+	flag.StringVar(&outputFileName, "o", defaultOutputFileName,
+		`Specify output file name 
+		If more than 1 url specified, this option will be ignored`)
 	flag.StringVar(&userAgent, "U", appName, "Set user agent")
 	flag.BoolVar(&debug, "d", false, "Print debug infomation")
 	flag.StringVar(&outputPath, "p", ".", "Specify output file path")
@@ -98,44 +101,45 @@ func startRoutine(rangeFrom, pieceSize, alreadyHas int, url string) {
 	ch <- 1
 }
 
-/* TODO: parse url to get host, port, path, basename */
-func parseUrl(strUrl string) (protocol string, host string, port int,
+func parseUrl(urlStr string) (protocol string, host string, port int,
 	strPath string, userName string, passwd string) {
-	protocol = ""
-	host = ""
-	port = 0
-	strPath = ""
-
-	u, err := url.Parse(strUrl)
+	u, err := url.Parse(urlStr)
 	if err != nil {
 		fmt.Println("ERROR:", err.Error())
 		return
 	}
+
 	protocol = u.Scheme
-	host = u.Host
-	port = 80
-	if protocol == "https" {
+	switch protocol {
+	case "http":
+		port = 80
+	case "https":
 		port = 443
-	} else if protocol == "ftp" {
+	case "ftp":
 		port = 21
 	}
-	userinfo := u.User
-	if userinfo != nil {
+
+	host = u.Host
+
+	if userinfo := u.User; userinfo != nil {
 		userName = userinfo.Username()
 		passwd, _ = userinfo.Password()
 	}
-	strPath = u.Path
-	if strPath == "" {
+
+	if strPath = u.Path; strPath == "" {
 		strPath = "/"
 	}
+
 	pos := strings.Index(host, ":")
 	if pos != -1 {
 		port, _ = strconv.Atoi(host[pos+1:])
 		host = host[0:pos]
 	}
+
 	conn := &conn.CONN{Protocol: protocol, Host: host, Port: port,
 		UserAgent: userAgent, UserName: userName,
 		Passwd: passwd, Path: strPath, Debug: debug}
+
 	if outputFileName == defaultOutputFileName && path.Base(strPath) != "/" {
 		outputFileName = path.Base(strPath)
 	}
@@ -188,7 +192,8 @@ func splitWork(url string) {
 			bar.Add(chunkFileSize)
 		}
 
-		if i == connNum-1 { //the last piece,down addtional 'remainder',eg. split 9 to 4 + (4+'1')
+		//the last piece,down addtional 'remainder',eg. split 9 to 4 + (4+'1')
+		if i == connNum-1 {
 			eachPieceSize += remainder
 		}
 		go startRoutine(startPos, eachPieceSize, chunkFileSize, url)
@@ -264,7 +269,6 @@ func downSingleFile(url string) bool {
 }
 
 func main() {
-
 	if len(os.Args) == 1 {
 		fmt.Println("Usage: goaxel [options] url1 [url2] [url...]")
 		fmt.Printf("	For more information,type %s -h\n", os.Args[0])
