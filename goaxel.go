@@ -32,9 +32,8 @@ import (
 	"strconv"
 	"strings"
 
-	"./conn"
 	"github.com/cheggaaa/pb"
-	//"github.com/kumakichi/goaxel/conn"
+	"github.com/kumakichi/goaxel/conn"
 )
 
 const (

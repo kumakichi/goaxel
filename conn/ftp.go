@@ -110,7 +110,6 @@ func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas in
 	ftp.Request(fmt.Sprintf("REST %d", rangeFrom+alreadyHas))
 	ftp.Request("RETR " + fileName)
 
-	var writeLen int
 	ftp.offset = alreadyHas
 	buff := make([]byte, 102400)
 	defer conn.Close()
@@ -130,17 +129,16 @@ func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas in
 			}
 		}
 
-		writeLen = n
 		if ftp.offset+n > pieceSize {
-			writeLen = pieceSize - ftp.offset
+			n = pieceSize - ftp.offset
 		}
 
-		f.WriteAt(buff[:writeLen], int64(ftp.offset))
+		f.WriteAt(buff[:n], int64(ftp.offset))
 
 		if ftp.Callback != nil {
-			ftp.Callback(writeLen)
+			ftp.Callback(n)
 		}
-		ftp.offset += writeLen
+		ftp.offset += n
 		if err == io.EOF || ftp.offset == pieceSize {
 			return
 		}
