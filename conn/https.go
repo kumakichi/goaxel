@@ -171,7 +171,7 @@ func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
 	return
 }
 
-func (https *HTTPS) Get(url string, rangeFrom, pieceSize, alreadyHas int) {
+func (https *HTTPS) Get(url string, c []Cookie, rangeFrom, pieceSize, alreadyHas int) {
 	rangeFrom += alreadyHas
 
 	https.AddHeader(fmt.Sprintf("GET %s HTTP/1.1", url))

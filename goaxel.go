@@ -280,6 +280,9 @@ func parseCookieLine(s []byte, host string) (c conn.Cookie, ok bool) {
 	}
 
 	domain := line[0]
+	if domain[0] == '.' {
+		domain = domain[1:]
+	}
 
 	//Curl source says, quoting Andre Garcia: "flag: A TRUE/FALSE
 	// value indicating if all machines within a given domain can
@@ -292,10 +295,6 @@ func parseCookieLine(s []byte, host string) (c conn.Cookie, ok bool) {
 	expires := line[4]
 	name := line[5]
 	value := line[6]
-
-	if domain[0] == '.' {
-		domain = domain[1:]
-	}
 
 	if false == strings.Contains(host, domain) {
 		return

@@ -150,7 +150,7 @@ func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas in
 	return
 }
 
-func (ftp *FTP) Get(url string, rangeFrom, pieceSize, alreadyHas int) {
+func (ftp *FTP) Get(url string, c []Cookie, rangeFrom, pieceSize, alreadyHas int) {
 	ftp.Pasv()
 	ftp.dataConn = ftp.NewConnect()
 	ftp.Request(fmt.Sprintf("REST %d", rangeFrom+alreadyHas))

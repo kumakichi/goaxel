@@ -36,7 +36,7 @@ type CONN struct {
 }
 
 type DownLoader interface {
-	Get(url string, rangeFrom, pieceSize, alreadyHas int)
+	Get(url string, c []Cookie, rangeFrom, pieceSize, alreadyHas int)
 	Response() (code int, message string)
 	IsAcceptRange() bool
 	GetContentLength(path string) int
@@ -83,7 +83,7 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 
 	switch c.Protocol {
 	case "http", "https":
-		downLoader.Get(c.Path, 0, 0, 0)
+		downLoader.Get(c.Path, c.Cookie, 0, 0, 0)
 		downLoader.Response()
 	case "ftp":
 	}
@@ -101,6 +101,6 @@ func (c *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) {
 	defer downLoader.Close()
 
 	downLoader.SetCallBack(c.Callback)
-	downLoader.Get(c.Path, rangeFrom, pieceSize, alreadyHas)
+	downLoader.Get(c.Path, c.Cookie, rangeFrom, pieceSize, alreadyHas)
 	downLoader.WriteToFile(fileName, rangeFrom, pieceSize, alreadyHas)
 }

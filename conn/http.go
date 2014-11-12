@@ -171,7 +171,13 @@ func (http *HTTP) WriteToFile(outputName string, rangeFrom,
 	return
 }
 
-func (http *HTTP) Get(url string, rangeFrom, pieceSize, alreadyHas int) {
+func (http *HTTP) loadCookies(c []Cookie) {
+	for _, v := range c {
+		http.AddHeader(fmt.Sprintf("%s:%s", v.Key, v.Val))
+	}
+}
+
+func (http *HTTP) Get(url string, c []Cookie, rangeFrom, pieceSize, alreadyHas int) {
 	rangeFrom += alreadyHas
 
 	http.AddHeader(fmt.Sprintf("GET %s HTTP/1.1", url))
@@ -184,10 +190,11 @@ func (http *HTTP) Get(url string, rangeFrom, pieceSize, alreadyHas int) {
 		http.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", rangeFrom, rangeFrom+pieceSize-1))
 	}
 	http.AddHeader(fmt.Sprintf("User-Agent: %s", http.UserAgent))
+	http.loadCookies(c)
 	http.AddHeader("")
 
 	if http.Debug {
-		fmt.Println("DEBUG:", http.header)
+		fmt.Println("COOKIE:", http.header)
 	}
 
 	_, http.Error = http.conn.Write([]byte(http.header))
