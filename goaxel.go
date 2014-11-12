@@ -55,7 +55,7 @@ type goAxelUrl struct {
 var (
 	connNum        int
 	userAgent      string
-	versionPrint   bool
+	showVersion    bool
 	debug          bool
 	urls           []string
 	outputPath     string
@@ -64,7 +64,7 @@ var (
 	contentLength  int
 	acceptRange    bool
 	chunkFiles     []string
-	ch             chan int
+	noticeDone     chan int
 	bar            *pb.ProgressBar
 	cookieFile     string
 )
@@ -95,7 +95,7 @@ func init() {
 	flag.StringVar(&userAgent, "U", appName, "Set user agent")
 	flag.BoolVar(&debug, "d", false, "Print debug infomation")
 	flag.StringVar(&outputPath, "p", ".", "Specify output file path")
-	flag.BoolVar(&versionPrint, "V", false, "Print version and copyright")
+	flag.BoolVar(&showVersion, "V", false, "Print version and copyright")
 	flag.StringVar(&cookieFile, "cookie", "", `Cookie file in the format 
 		originally used by Netscape's cookies.txt`)
 }
@@ -110,7 +110,7 @@ func startRoutine(rangeFrom, pieceSize, alreadyHas int, u goAxelUrl) {
 		Passwd: u.passwd, Path: u.path, Debug: debug,
 		Callback: connCallback}
 	conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
-	ch <- 1
+	noticeDone <- 1
 }
 
 func parseUrl(urlStr string) (g goAxelUrl, e error) {
@@ -179,7 +179,7 @@ func fileSize(fileName string) int64 {
 	return 0
 }
 
-func splitWork(u goAxelUrl) {
+func divideAndDownload(u goAxelUrl) {
 	var filepath string
 	var startPos, remainder int
 
@@ -188,11 +188,8 @@ func splitWork(u goAxelUrl) {
 		return
 	}
 
-	fmt.Println("dsjkalfdjalsf:", contentLength, connNum)
 	eachPieceSize := contentLength / connNum
-	if eachPieceSize != 0 {
-		remainder = contentLength - eachPieceSize*connNum
-	}
+	remainder = contentLength - eachPieceSize*connNum
 
 	for i := 0; i < connNum; i++ {
 		startPos = i * eachPieceSize
@@ -242,7 +239,7 @@ func writeChunk() {
 	}
 }
 
-func getContentLengthAndAcceptRange(u goAxelUrl, outputName string) (int, bool) {
+func getContentLengthAcceptRange(u goAxelUrl, outputName string) (int, bool) {
 	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
 		UserAgent: userAgent, UserName: u.userName,
 		Passwd: u.passwd, Path: u.path, Debug: debug}
@@ -250,77 +247,94 @@ func getContentLengthAndAcceptRange(u goAxelUrl, outputName string) (int, bool) 
 	return conn.GetContentLength(outputName)
 }
 
+func createProgressBar(length int) (bar *pb.ProgressBar) {
+	bar = pb.New(length)
+	bar.ShowSpeed = true
+	bar.Units = pb.U_BYTES
+	return
+}
+
 func downSingleFile(url string) bool {
 	var err error
+
+	chunkFiles = make([]string, 0) // reset it before downloading any url
 
 	u, err := parseUrl(url)
 	if err != nil {
 		return false
 	}
-	contentLength, acceptRange = getContentLengthAndAcceptRange(u, outputFileName)
+	contentLength, acceptRange = getContentLengthAcceptRange(u, outputFileName)
 
-	bar = pb.New(contentLength)
-	bar.ShowSpeed = true
-	bar.Units = pb.U_BYTES
+	bar = createProgressBar(contentLength)
 	defer bar.Finish()
 
-	if debug {
-		fmt.Println("DEBUG: output filename", outputFileName)
-		fmt.Println("DEBUG: content length", contentLength)
-	}
-
-	outputFile, err = os.Create(outputFileName)
-	if err != nil {
+	if outputFile, err = os.Create(outputFileName); err != nil {
 		log.Println("error create:", outputFile, ",link:", url)
 		return false
 	}
 	defer outputFile.Close()
 
-	ch = make(chan int)
-	splitWork(u)
 	bar.Start()
+	divideAndDownload(u)
 
 	for i := 0; i < connNum; i++ {
-		<-ch
+		<-noticeDone
 	}
 	writeChunk()
 
 	return true
 }
 
+func showVersionInfo() {
+	fmt.Println(fmt.Sprintf("%s Version 1.1", appName))
+	fmt.Println("Copyright (C) 2013 Leslie Zhai")
+	fmt.Println("Copyright (C) 2014 kumakichi")
+}
+
+func showUsage() {
+	fmt.Println("Usage: goaxel [options] url1 [url2] [url...]")
+	fmt.Printf("	For more information,type %s -h\n", os.Args[0])
+}
+
+func checkUrls(u *[]string) {
+	if len(urls) == 0 {
+		if false == showVersion {
+			log.Fatal("You must specify at least one url to download")
+		}
+	}
+
+	if len(urls) > 1 { // more than 1 url,can not set ouputfile name
+		outputFileName = defaultOutputFileName
+	}
+}
+
+func changeToOutputDir(dst string) {
+	if dst != "." {
+		if err := os.Chdir(dst); err != nil {
+			log.Fatal("Change directory failed :", dst, err)
+		}
+	}
+}
+
 func main() {
 	if len(os.Args) == 1 {
-		fmt.Println("Usage: goaxel [options] url1 [url2] [url...]")
-		fmt.Printf("	For more information,type %s -h\n", os.Args[0])
+		showUsage()
 		return
 	}
 
 	flag.Parse()
+
+	if showVersion {
+		showVersionInfo()
+	}
+
 	urls = flag.Args()
+	checkUrls(&urls)
 
-	if versionPrint {
-		fmt.Println(fmt.Sprintf("%s Version 1.1", appName))
-		fmt.Println("Copyright (C) 2013 Leslie Zhai")
-		fmt.Println("Copyright (C) 2014 kumakichi")
-	}
-
-	if len(urls) == 0 {
-		fmt.Println("You must specify at least one url to download")
-		return
-	}
-
-	if outputPath != "." {
-		err := os.Chdir(outputPath)
-		if err != nil {
-			log.Fatal("Change Dir Failed :", outputPath, err)
-		}
-	}
+	changeToOutputDir(outputPath)
+	noticeDone = make(chan int)
 
 	for i := 0; i < len(urls); i++ {
-		if len(urls) > 1 { // more than 1 url,can not set ouputfile name
-			outputFileName = defaultOutputFileName
-		}
-		chunkFiles = make([]string, 0) // reset it before downloading any url
 		downSingleFile(urls[i])
 	}
 }
