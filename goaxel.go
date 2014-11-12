@@ -31,6 +31,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cheggaaa/pb"
 	//"github.com/kumakichi/goaxel/conn"
@@ -94,7 +95,7 @@ func init() {
 	flag.BoolVar(&debug, "d", false, "Print debug infomation")
 	flag.StringVar(&outputPath, "p", ".", "Specify output file path")
 	flag.BoolVar(&showVersion, "V", false, "Print version and copyright")
-	flag.StringVar(&cookieFile, "cookie", "", `Cookie file in the format 
+	flag.StringVar(&cookieFile, "load-cookies", "", `Cookie file in the format 
 		originally used by Netscape's cookies.txt`)
 }
 
@@ -102,11 +103,12 @@ func connCallback(n int) {
 	bar.Add(n)
 }
 
-func startRoutine(rangeFrom, pieceSize, alreadyHas int, u goAxelUrl) {
+func startRoutine(rangeFrom, pieceSize, alreadyHas int,
+	u goAxelUrl, c []conn.Cookie) {
 	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
 		UserAgent: userAgent, UserName: u.userName,
 		Passwd: u.passwd, Path: u.path, Debug: debug,
-		Callback: connCallback}
+		Callback: connCallback, Cookie: c}
 	conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
 	noticeDone <- 1
 }
@@ -180,12 +182,12 @@ func fileSize(fileName string) int64 {
 	return 0
 }
 
-func divideAndDownload(u goAxelUrl) {
+func divideAndDownload(u goAxelUrl, cookie []conn.Cookie) {
 	var filepath string
 	var startPos, remainder int
 
 	if acceptRange == false || connNum == 1 { //need not split work
-		go startRoutine(0, 0, 0, u)
+		go startRoutine(0, 0, 0, u, cookie)
 		return
 	}
 
@@ -205,7 +207,7 @@ func divideAndDownload(u goAxelUrl) {
 		if i == connNum-1 {
 			eachPieceSize += remainder
 		}
-		go startRoutine(startPos, eachPieceSize, alreadyHas, u)
+		go startRoutine(startPos, eachPieceSize, alreadyHas, u, cookie)
 	}
 }
 
@@ -247,10 +249,11 @@ func mergeChunkFiles() {
 	}
 }
 
-func getContentLengthAcceptRange(u goAxelUrl, outputName string) (int, bool) {
+func getContentLengthAcceptRange(u goAxelUrl, c []conn.Cookie,
+	outputName string) (int, bool) {
 	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
 		UserAgent: userAgent, UserName: u.userName,
-		Passwd: u.passwd, Path: u.path, Debug: debug}
+		Passwd: u.passwd, Path: u.path, Debug: debug, Cookie: c}
 
 	return conn.GetContentLength(outputName)
 }
@@ -262,6 +265,97 @@ func createProgressBar(length int) (bar *pb.ProgressBar) {
 	return
 }
 
+func parseCookieLine(s []byte, host string) (c conn.Cookie, ok bool) {
+	line := strings.Split(string(s), "\t")
+	if len(line) != 7 {
+		return
+	}
+
+	if len(line[0]) < 3 {
+		return
+	}
+
+	if line[0][0] == '#' {
+		return
+	}
+
+	domain := line[0]
+
+	//Curl source says, quoting Andre Garcia: "flag: A TRUE/FALSE
+	// value indicating if all machines within a given domain can
+	// access the variable.  This value is set automatically by the
+	// browser, depending on the value set for the domain."
+	//domainFlag := line[1]
+
+	//path := line[2]
+	//security := line[3]
+	expires := line[4]
+	name := line[5]
+	value := line[6]
+
+	if domain[0] == '.' {
+		domain = domain[1:]
+	}
+
+	if false == strings.Contains(host, domain) {
+		return
+	}
+
+	expiresTimestamp, err := strconv.ParseInt(expires, 10, 64)
+	if err != nil {
+		fmt.Println("expires timestamp convert error :", err)
+		return
+	}
+
+	if expiresTimestamp < time.Now().Unix() {
+		return
+	}
+
+	c.Key = name
+	c.Val = value
+	ok = true
+	return
+}
+
+func loadCookies(cookiePath, host string) (cookie []conn.Cookie, ok bool) {
+	if cookiePath == "" {
+		ok = false
+		return
+	}
+
+	f, err := os.Open(cookiePath)
+	if err != nil {
+		fmt.Println("ERROR OPEN COOKIE :", err)
+		ok = false
+		return
+	}
+	defer f.Close()
+
+	br := bufio.NewReader(f)
+	for {
+		line, isPrefix, err := br.ReadLine()
+		if err != nil && err != io.EOF {
+			ok = false
+			return
+		}
+		if isPrefix {
+			fmt.Println("you should not see this message")
+			continue
+		}
+
+		if c, ok := parseCookieLine(line, host); ok {
+			cookie = append(cookie, c)
+		}
+
+		if err == io.EOF {
+			break
+		}
+	}
+
+	ok = true
+	return
+}
+
 func downSingleFile(url string) bool {
 	var err error
 
@@ -269,11 +363,16 @@ func downSingleFile(url string) bool {
 	if err != nil {
 		return false
 	}
-	contentLength, acceptRange = getContentLengthAcceptRange(u, outputFileName)
+
+	cookies, ok := loadCookies(cookieFile, u.host)
+	if !ok {
+		cookies = make([]conn.Cookie, 0)
+	}
+	contentLength, acceptRange = getContentLengthAcceptRange(u, cookies, outputFileName)
 
 	if debug {
-		fmt.Printf("[DEBUG] content length:%d,accept range:%d",
-			contentLength, acceptRange)
+		fmt.Printf("[DEBUG] content length:%d,accept range:%t, cookie file:%s\n",
+			contentLength, acceptRange, cookieFile)
 	}
 
 	bar = createProgressBar(contentLength)
@@ -286,7 +385,7 @@ func downSingleFile(url string) bool {
 	defer outputFile.Close()
 
 	bar.Start()
-	divideAndDownload(u)
+	divideAndDownload(u, cookies)
 
 	for i := 0; i < connNum; i++ {
 		<-noticeDone
@@ -327,6 +426,20 @@ func changeToOutputDir(dst string) {
 	}
 }
 
+func getCookieAbsolutePath() {
+	var err error
+
+	if cookieFile == "" {
+		return
+	}
+
+	cookieFile, err = filepath.Abs(cookieFile)
+	if err != nil {
+		cookieFile = ""
+		log.Fatal("Error get absolute path :", cookieFile)
+	}
+}
+
 func main() {
 	if len(os.Args) == 1 {
 		showUsage()
@@ -342,9 +455,10 @@ func main() {
 	urls = flag.Args()
 	checkUrls(&urls)
 
+	getCookieAbsolutePath()
 	changeToOutputDir(outputPath)
-	noticeDone = make(chan int)
 
+	noticeDone = make(chan int)
 	for i := 0; i < len(urls); i++ {
 		downSingleFile(urls[i])
 	}

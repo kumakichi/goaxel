@@ -18,6 +18,10 @@
 
 package conn
 
+type Cookie struct {
+	Key, Val string
+}
+
 type CONN struct {
 	Protocol  string
 	Host      string
@@ -28,6 +32,7 @@ type CONN struct {
 	Path      string
 	Debug     bool
 	Callback  func(int)
+	Cookie    []Cookie
 }
 
 type DownLoader interface {
@@ -80,6 +85,7 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 	case "http", "https":
 		downLoader.Get(c.Path, 0, 0, 0)
 		downLoader.Response()
+	case "ftp":
 	}
 	length = downLoader.GetContentLength(fileName)
 	accept = downLoader.IsAcceptRange()
