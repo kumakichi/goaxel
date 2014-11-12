@@ -42,14 +42,14 @@ const (
 )
 
 type goAxelUrl struct {
-	protocol      string
-	port          int
-	userName      string
-	passwd        string
-	path          string
-	host          string
-	contentLength int
-	acceptRange   bool
+	protocol string
+	port     int
+	userName string
+	passwd   string
+	path     string
+	host     string
+	// contentLength int
+	// acceptRange   bool
 }
 
 var (
@@ -148,11 +148,6 @@ func parseUrl(urlStr string) (g goAxelUrl, e error) {
 		g.host = g.host[0:pos]
 	}
 
-	conn := &conn.CONN{Protocol: g.protocol, Host: g.host, Port: g.port,
-		UserAgent: userAgent, UserName: g.userName,
-		Passwd: g.passwd, Path: g.path, Debug: debug}
-	g.contentLength, g.acceptRange = conn.GetContentLength(outputFileName)
-
 	return
 }
 
@@ -247,6 +242,14 @@ func writeChunk() {
 	}
 }
 
+func getContentLengthAndAcceptRange(u goAxelUrl, outputName string) (int, bool) {
+	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
+		UserAgent: userAgent, UserName: u.userName,
+		Passwd: u.passwd, Path: u.path, Debug: debug}
+
+	return conn.GetContentLength(outputName)
+}
+
 func downSingleFile(url string) bool {
 	var err error
 
@@ -254,7 +257,7 @@ func downSingleFile(url string) bool {
 	if err != nil {
 		return false
 	}
-	contentLength, acceptRange = u.contentLength, u.acceptRange
+	contentLength, acceptRange = getContentLengthAndAcceptRange(u, outputFileName)
 
 	bar = pb.New(contentLength)
 	bar.ShowSpeed = true
