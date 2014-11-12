@@ -157,7 +157,6 @@ func (https *HTTPS) writeContent(f *os.File) {
 func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
 	pieceSize, alreadyHas int) {
 	https.offset = alreadyHas
-	defer https.conn.Close()
 
 	chunkName := fmt.Sprintf("%s.part.%d", outputName, rangeFrom)
 	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
@@ -172,10 +171,13 @@ func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
 	return
 }
 
-func (https *HTTPS) Get(url string, rangeFrom, pieceSize int) {
+func (https *HTTPS) Get(url string, rangeFrom, pieceSize, alreadyHas int) {
+	rangeFrom += alreadyHas
+
 	https.AddHeader(fmt.Sprintf("GET %s HTTP/1.1", url))
 	https.AddHeader("Connection: close") // default value is 'keep-alive'
 	https.AddHeader(fmt.Sprintf("Host: %s", https.host))
+
 	if pieceSize == 0 {
 		https.AddHeader(fmt.Sprintf("Range: bytes=0-"))
 	} else {
@@ -183,9 +185,11 @@ func (https *HTTPS) Get(url string, rangeFrom, pieceSize int) {
 	}
 	https.AddHeader(fmt.Sprintf("User-Agent: %s", https.UserAgent))
 	https.AddHeader("")
+
 	if https.Debug {
 		fmt.Println("DEBUG:", https.header)
 	}
+
 	_, https.Error = https.conn.Write([]byte(https.header))
 	if https.Error != nil {
 		fmt.Println("ERROR: ", https.Error.Error())

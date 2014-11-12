@@ -43,10 +43,6 @@ type HTTP struct {
 	Callback       func(int)
 }
 
-const (
-	buffer_size int = 1024 * 1024
-)
-
 func (http *HTTP) Connect(host string, port int) bool {
 	address := fmt.Sprintf("%s:%d", host, port)
 	http.conn, http.Error = net.Dial("tcp", address)
@@ -161,7 +157,6 @@ func (http *HTTP) writeContent(f *os.File) {
 func (http *HTTP) WriteToFile(outputName string, rangeFrom,
 	pieceSize, alreadyHas int) {
 	http.offset = alreadyHas
-	defer http.conn.Close()
 
 	chunkName := fmt.Sprintf("%s.part.%d", outputName, rangeFrom)
 	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
@@ -176,10 +171,13 @@ func (http *HTTP) WriteToFile(outputName string, rangeFrom,
 	return
 }
 
-func (http *HTTP) Get(url string, rangeFrom, pieceSize int) {
+func (http *HTTP) Get(url string, rangeFrom, pieceSize, alreadyHas int) {
+	rangeFrom += alreadyHas
+
 	http.AddHeader(fmt.Sprintf("GET %s HTTP/1.1", url))
 	http.AddHeader("Connection: close") // default value of HTTP1.1 is 'keep-alive'
 	http.AddHeader(fmt.Sprintf("Host: %s", http.host))
+
 	if pieceSize == 0 {
 		http.AddHeader(fmt.Sprintf("Range: bytes=0-"))
 	} else {
@@ -187,9 +185,11 @@ func (http *HTTP) Get(url string, rangeFrom, pieceSize int) {
 	}
 	http.AddHeader(fmt.Sprintf("User-Agent: %s", http.UserAgent))
 	http.AddHeader("")
+
 	if http.Debug {
 		fmt.Println("DEBUG:", http.header)
 	}
+
 	_, http.Error = http.conn.Write([]byte(http.header))
 	if http.Error != nil {
 		fmt.Println("ERROR: ", http.Error.Error())

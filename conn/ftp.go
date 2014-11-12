@@ -43,7 +43,8 @@ type FTP struct {
 	Message  string
 	Debug    bool
 	stream   []byte
-	conn     net.Conn
+	conn     net.Conn // for command
+	dataConn net.Conn // for data tranfer
 	Error    error
 	offset   int
 	Callback func(int)
@@ -105,24 +106,11 @@ func (ftp *FTP) Login(user, passwd string) {
 	ftp.passwd = passwd
 }
 
-func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas int) {
-	conn := ftp.NewConnect()
-	ftp.Request(fmt.Sprintf("REST %d", rangeFrom+alreadyHas))
-	ftp.Request("RETR " + fileName)
-
-	ftp.offset = alreadyHas
-	buff := make([]byte, 102400)
-	defer conn.Close()
-
-	chunkName := fmt.Sprintf("%s.part.%d", fileName, rangeFrom+alreadyHas)
-	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
-	defer f.Close()
-	if err != nil {
-		panic(err)
-	}
+func (ftp *FTP) writeContent(f *os.File, pieceSize int) {
+	buff := make([]byte, buffer_size)
 
 	for {
-		n, err := conn.Read(buff)
+		n, err := ftp.dataConn.Read(buff)
 		if err != nil {
 			if err != io.EOF {
 				panic(err)
@@ -134,20 +122,38 @@ func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas in
 		}
 
 		f.WriteAt(buff[:n], int64(ftp.offset))
-
 		if ftp.Callback != nil {
 			ftp.Callback(n)
 		}
 		ftp.offset += n
+
 		if err == io.EOF || ftp.offset == pieceSize {
 			return
 		}
 	}
+}
+
+func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas int) {
+	ftp.offset = alreadyHas
+	defer ftp.dataConn.Close()
+
+	chunkName := fmt.Sprintf("%s.part.%d", fileName, rangeFrom+alreadyHas)
+	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	ftp.Request("RETR " + fileName)
+	ftp.writeContent(f, pieceSize)
+
 	return
 }
 
-func (ftp *FTP) Get(url string, rangeFrom, pieceSize int) {
+func (ftp *FTP) Get(url string, rangeFrom, pieceSize, alreadyHas int) {
 	ftp.Pasv()
+	ftp.dataConn = ftp.NewConnect()
+	ftp.Request(fmt.Sprintf("REST %d", rangeFrom+alreadyHas))
 }
 
 func (ftp *FTP) IsAcceptRange() bool {

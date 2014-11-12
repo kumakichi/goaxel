@@ -31,16 +31,20 @@ type CONN struct {
 }
 
 type DownLoader interface {
-	Get(url string, from, size int)
+	Get(url string, rangeFrom, pieceSize, alreadyHas int)
 	Response() (code int, message string)
 	IsAcceptRange() bool
 	GetContentLength(path string) int
 	SetConnOpt(c *CONN)
 	Connect(host string, port int) bool
 	SetCallBack(cb func(int))
-	WriteToFile(fileName string, rangeFrom, pieceSize, offset int)
+	WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas int)
 	Close()
 }
+
+const (
+	buffer_size int = 1024 * 1024
+)
 
 func (c *CONN) Connect() (downLoader DownLoader, ok bool) {
 	ok = false
@@ -74,7 +78,7 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 
 	switch c.Protocol {
 	case "http", "https":
-		downLoader.Get(c.Path, 0, 0)
+		downLoader.Get(c.Path, 0, 0, 0)
 		downLoader.Response()
 	}
 	length = downLoader.GetContentLength(fileName)
@@ -88,8 +92,9 @@ func (c *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) {
 	if false == ok {
 		return
 	}
+	defer downLoader.Close()
 
 	downLoader.SetCallBack(c.Callback)
-	downLoader.Get(c.Path, rangeFrom+alreadyHas, pieceSize)
+	downLoader.Get(c.Path, rangeFrom, pieceSize, alreadyHas)
 	downLoader.WriteToFile(fileName, rangeFrom, pieceSize, alreadyHas)
 }
