@@ -194,7 +194,7 @@ func (http *HTTP) Get(url string, c []Cookie, rangeFrom, pieceSize, alreadyHas i
 	http.AddHeader("")
 
 	if http.Debug {
-		fmt.Println("COOKIE:", http.header)
+		fmt.Println("HEADER:", http.header)
 	}
 
 	_, http.Error = http.conn.Write([]byte(http.header))

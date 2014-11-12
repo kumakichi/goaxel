@@ -66,6 +66,7 @@ var (
 	noticeDone     chan int
 	bar            *pb.ProgressBar
 	cookieFile     string
+	usrDefCookie   string
 )
 
 type SortString []string
@@ -97,6 +98,7 @@ func init() {
 	flag.BoolVar(&showVersion, "V", false, "Print version and copyright")
 	flag.StringVar(&cookieFile, "load-cookies", "", `Cookie file in the format 
 		originally used by Netscape's cookies.txt`)
+	flag.StringVar(&usrDefCookie, "cookie", "", `comma seperated cookies string`)
 }
 
 func connCallback(n int) {
@@ -111,6 +113,12 @@ func startRoutine(rangeFrom, pieceSize, alreadyHas int,
 		Callback: connCallback, Cookie: c}
 	conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
 	noticeDone <- 1
+}
+
+//http://ts.test.com/file/a.aac?fid=77&tid=88
+func getFixedUrlPath(rawurl string, u *url.URL) string {
+	s := strings.Split(rawurl, u.Host)
+	return s[1]
 }
 
 func parseUrl(urlStr string) (g goAxelUrl, e error) {
@@ -135,7 +143,7 @@ func parseUrl(urlStr string) (g goAxelUrl, e error) {
 		g.passwd, _ = userinfo.Password()
 	}
 
-	if g.path = u.Path; g.path == "" { // links like : http://www.google.com
+	if g.path = getFixedUrlPath(urlStr, u); g.path == "" { // links like : http://www.google.com
 		g.path = "/"
 	} else if outputFileName == defaultOutputFileName {
 		outputFileName = path.Base(g.path)
@@ -316,6 +324,30 @@ func parseCookieLine(s []byte, host string) (c conn.Cookie, ok bool) {
 	return
 }
 
+func loadUsrDefinedCookie(usrDef string, cookie *[]conn.Cookie) {
+	s := strings.Split(usrDef, ";")
+	for i := 0; i < len(s); i++ {
+		if len(s[i]) < 3 {
+			continue
+		}
+
+		kv := strings.Split(s[i], ":")
+		if len(kv) < 2 {
+			continue
+		}
+
+		//Referer:http://www.google.com
+		val := ""
+		for j := 1; j < len(kv); j++ {
+			val += kv[j]
+			if j != len(kv)-1 {
+				val += ":"
+			}
+		}
+		*cookie = append(*cookie, conn.Cookie{Key: kv[0], Val: val})
+	}
+}
+
 func loadCookies(cookiePath, host string) (cookie []conn.Cookie, ok bool) {
 	if cookiePath == "" {
 		ok = false
@@ -350,6 +382,8 @@ func loadCookies(cookiePath, host string) (cookie []conn.Cookie, ok bool) {
 			break
 		}
 	}
+
+	loadUsrDefinedCookie(usrDefCookie, &cookie)
 
 	ok = true
 	return
