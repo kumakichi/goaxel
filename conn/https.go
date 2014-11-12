@@ -96,15 +96,13 @@ func (https *HTTPS) Response() (code int, message string) {
 	return
 }
 
-func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
-	pieceSize, alreadyHas int) {
-	https.offset = alreadyHas
-	defer https.conn.Close()
-	resp := ""
+func (https *HTTPS) readResponseHeaders() {
+	resp := make([]byte, 0)
 	data := make([]byte, 1)
-	for i := 0; ; {
-		data := make([]byte, 1)
-		n, err := https.conn.Read(data)
+	comeAcrossLF := 0
+
+	for {
+		_, err := https.conn.Read(data)
 		if err != nil {
 			if err != io.EOF {
 				https.Error = err
@@ -112,46 +110,65 @@ func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
 				return
 			}
 		}
-		if data[0] == '\r' {
-			continue
-		} else if data[0] == '\n' {
-			if i == 0 {
-				break
-			}
-			i = 0
-		} else {
-			i++
+
+		switch data[0] {
+		case '\r':
+			// do nothing
+		case '\n':
+			comeAcrossLF += 1
+		default:
+			comeAcrossLF = 0
 		}
-		resp += string(data[:n])
+
+		if comeAcrossLF == 2 {
+			break
+		}
+		resp = append(resp, data[0])
 	}
+
 	if https.Debug {
-		fmt.Println("DEBUG:", resp)
+		fmt.Println("[DEBUG] RESP :", string(resp))
 	}
-	chunkName := fmt.Sprintf("%s.part.%d", outputName, rangeFrom)
-	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
-	defer f.Close()
-	if err != nil {
-		panic(err)
-	}
-	data = make([]byte, buffer_size)
+}
+
+func (https *HTTPS) writeContent(f *os.File) {
+	data := make([]byte, buffer_size)
+
 	for {
 		n, err := https.conn.Read(data)
-		if err != nil {
-			if err != io.EOF {
-				https.Error = err
-				fmt.Println("ERROR:", https.Error.Error())
-				return
-			}
+		if err != nil && err != io.EOF {
+			https.Error = err
+			fmt.Println("ERROR:", https.Error.Error())
+			return
 		}
+
 		f.WriteAt(data[:n], int64(https.offset))
 		if https.Callback != nil {
 			https.Callback(n)
 		}
 		https.offset += n
+
 		if err == io.EOF {
 			return
 		}
 	}
+}
+
+func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
+	pieceSize, alreadyHas int) {
+	https.offset = alreadyHas
+	defer https.conn.Close()
+
+	chunkName := fmt.Sprintf("%s.part.%d", outputName, rangeFrom)
+	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	https.readResponseHeaders()
+	https.writeContent(f)
+
 	return
 }
 
