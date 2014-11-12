@@ -48,8 +48,6 @@ type goAxelUrl struct {
 	passwd   string
 	path     string
 	host     string
-	// contentLength int
-	// acceptRange   bool
 }
 
 var (
@@ -63,7 +61,6 @@ var (
 	outputFile     *os.File
 	contentLength  int
 	acceptRange    bool
-	chunkFiles     []string
 	noticeDone     chan int
 	bar            *pb.ProgressBar
 	cookieFile     string
@@ -151,25 +148,28 @@ func parseUrl(urlStr string) (g goAxelUrl, e error) {
 	return
 }
 
-func partialFileWalker(path string, f os.FileInfo, err error) error {
-	if f == nil {
-		return err
-	}
-	if f.IsDir() {
+func getChunkFilesList(outputName string) (partFiles []string, e error) {
+	err := filepath.Walk(".", func(path string, f os.FileInfo, err error) error {
+		if f == nil {
+			return err
+		}
+		if f.IsDir() {
+			return nil
+		}
+		if strings.HasPrefix(path, outputName+".part.") {
+			partFiles = append(partFiles, path)
+		}
 		return nil
-	}
-	if strings.HasPrefix(path, outputFileName+".part.") {
-		chunkFiles = append(chunkFiles, path)
-	}
-	return nil
-}
+	})
 
-func travelChunk() {
-	if err := filepath.Walk(".", partialFileWalker); err != nil {
+	if err != nil {
+		e = err
 		fmt.Printf("ERROR:", err.Error())
 		return
 	}
-	sort.Sort(SortString(chunkFiles))
+	sort.Sort(SortString(partFiles))
+
+	return
 }
 
 func fileSize(fileName string) int64 {
@@ -208,31 +208,38 @@ func divideAndDownload(u goAxelUrl) {
 	}
 }
 
-func writeChunk() {
-	if len(chunkFiles) == 0 {
-		travelChunk()
+func mergeChunkFiles() {
+	var n int
+	var err error
+	var chunkFiles []string
+
+	chunkFiles, err = getChunkFilesList(outputFileName)
+	if err != nil {
+		log.Fatal("Merge chunk files failed :", err.Error())
 	}
 
 	for _, v := range chunkFiles {
 		chunkFile, _ := os.Open(v)
 		defer chunkFile.Close()
+
 		chunkReader := bufio.NewReader(chunkFile)
 		chunkWriter := bufio.NewWriter(outputFile)
+		buf := make([]byte, 1024*1024)
 
-		buf := make([]byte, 1024)
 		for {
-			n, err := chunkReader.Read(buf)
+			n, err = chunkReader.Read(buf)
 			if err != nil && err != io.EOF {
 				panic(err)
 			}
 			if n == 0 {
 				break
 			}
-			if _, err := chunkWriter.Write(buf[:n]); err != nil {
+			if _, err = chunkWriter.Write(buf[:n]); err != nil {
 				panic(err)
 			}
 		}
-		if err := chunkWriter.Flush(); err != nil {
+
+		if err = chunkWriter.Flush(); err != nil {
 			panic(err)
 		}
 		os.Remove(v)
@@ -257,8 +264,6 @@ func createProgressBar(length int) (bar *pb.ProgressBar) {
 func downSingleFile(url string) bool {
 	var err error
 
-	chunkFiles = make([]string, 0) // reset it before downloading any url
-
 	u, err := parseUrl(url)
 	if err != nil {
 		return false
@@ -280,7 +285,7 @@ func downSingleFile(url string) bool {
 	for i := 0; i < connNum; i++ {
 		<-noticeDone
 	}
-	writeChunk()
+	mergeChunkFiles()
 
 	return true
 }
