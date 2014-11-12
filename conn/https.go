@@ -173,7 +173,8 @@ func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
 }
 
 func (https *HTTPS) Get(url string, rangeFrom, pieceSize int) {
-	https.AddHeader(fmt.Sprintf("GET %s HTTP/1.0", url))
+	https.AddHeader(fmt.Sprintf("GET %s HTTP/1.1", url))
+	https.AddHeader("Connection: close") // default value is 'keep-alive'
 	https.AddHeader(fmt.Sprintf("Host: %s", https.host))
 	if pieceSize == 0 {
 		https.AddHeader(fmt.Sprintf("Range: bytes=0-"))

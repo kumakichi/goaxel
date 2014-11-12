@@ -270,9 +270,9 @@ func downSingleFile(url string) bool {
 		return false
 	}
 	contentLength, acceptRange = getContentLengthAcceptRange(u, outputFileName)
-	
+
 	if debug {
-		fmt.Printf("[DEBUG] content length:%d,accept range:%d", 
+		fmt.Printf("[DEBUG] content length:%d,accept range:%d",
 			contentLength, acceptRange)
 	}
 
