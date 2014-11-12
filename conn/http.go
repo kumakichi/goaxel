@@ -44,7 +44,7 @@ type HTTP struct {
 }
 
 const (
-	buffer_size int = 102400
+	buffer_size int = 1024 * 1024
 )
 
 func (http *HTTP) Connect(host string, port int) bool {
@@ -100,15 +100,13 @@ func (http *HTTP) Response() (code int, message string) {
 	return
 }
 
-func (http *HTTP) WriteToFile(outputName string, rangeFrom,
-	pieceSize, alreadyHas int) {
-	http.offset = alreadyHas
-	defer http.conn.Close()
-	resp := ""
+func readResponseHeaders(http *HTTP) {
+	resp := make([]byte, 0)
 	data := make([]byte, 1)
-	for i := 0; ; {
-		data := make([]byte, 1)
-		n, err := http.conn.Read(data)
+	comeAcrossLF := 0
+
+	for {
+		_, err := http.conn.Read(data)
 		if err != nil {
 			if err != io.EOF {
 				http.Error = err
@@ -116,28 +114,42 @@ func (http *HTTP) WriteToFile(outputName string, rangeFrom,
 				return
 			}
 		}
-		if data[0] == '\r' {
-			continue
-		} else if data[0] == '\n' {
-			if i == 0 {
-				break
-			}
-			i = 0
-		} else {
-			i++
+
+		switch data[0] {
+		case '\r':
+			// do nothing
+		case '\n':
+			comeAcrossLF += 1
+		default:
+			comeAcrossLF = 0
 		}
-		resp += string(data[:n])
+
+		if comeAcrossLF == 2 {
+			break
+		}
+		resp = append(resp, data[0])
 	}
+
 	if http.Debug {
-		fmt.Println("DEBUG:", resp)
+		fmt.Println("[DEBUG] RESP :", string(resp))
 	}
+}
+
+func (http *HTTP) WriteToFile(outputName string, rangeFrom,
+	pieceSize, alreadyHas int) {
+	http.offset = alreadyHas
+	defer http.conn.Close()
+
 	chunkName := fmt.Sprintf("%s.part.%d", outputName, rangeFrom)
 	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
-	defer f.Close()
 	if err != nil {
 		panic(err)
 	}
-	data = make([]byte, buffer_size)
+	defer f.Close()
+
+	readResponseHeaders(http)
+
+	data := make([]byte, buffer_size)
 	for {
 		n, err := http.conn.Read(data)
 		if err != nil {
@@ -156,6 +168,7 @@ func (http *HTTP) WriteToFile(outputName string, rangeFrom,
 			return
 		}
 	}
+
 	return
 }
 

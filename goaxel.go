@@ -33,7 +33,8 @@ import (
 	"strings"
 
 	"github.com/cheggaaa/pb"
-	"github.com/kumakichi/goaxel/conn"
+	//"github.com/kumakichi/goaxel/conn"
+	"./conn"
 )
 
 const (
@@ -269,6 +270,11 @@ func downSingleFile(url string) bool {
 		return false
 	}
 	contentLength, acceptRange = getContentLengthAcceptRange(u, outputFileName)
+	
+	if debug {
+		fmt.Printf("[DEBUG] content length:%d,accept range:%d", 
+			contentLength, acceptRange)
+	}
 
 	bar = createProgressBar(contentLength)
 	defer bar.Finish()
