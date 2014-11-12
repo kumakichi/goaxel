@@ -227,3 +227,7 @@ func (https *HTTPS) SetConnOpt(c *CONN) {
 func (https *HTTPS) SetCallBack(cb func(int)) {
 	https.Callback = cb
 }
+
+func (https *HTTPS) Close() {
+	https.conn.Close()
+}

@@ -39,6 +39,7 @@ type DownLoader interface {
 	Connect(host string, port int) bool
 	SetCallBack(cb func(int))
 	WriteToFile(fileName string, rangeFrom, pieceSize, offset int)
+	Close()
 }
 
 func (c *CONN) Connect() (downLoader DownLoader, ok bool) {
@@ -69,6 +70,7 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 	if false == ok {
 		return
 	}
+	defer downLoader.Close()
 
 	switch c.Protocol {
 	case "http", "https":

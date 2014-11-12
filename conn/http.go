@@ -231,3 +231,7 @@ func (http *HTTP) SetConnOpt(c *CONN) {
 func (http *HTTP) SetCallBack(cb func(int)) {
 	http.Callback = cb
 }
+
+func (http *HTTP) Close() {
+	http.conn.Close()
+}

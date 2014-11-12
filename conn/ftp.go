@@ -232,3 +232,7 @@ func (ftp *FTP) SetConnOpt(c *CONN) {
 func (ftp *FTP) SetCallBack(cb func(int)) {
 	ftp.Callback = cb
 }
+
+func (ftp *FTP) Close() {
+	ftp.conn.Close()
+}
