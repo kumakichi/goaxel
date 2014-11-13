@@ -66,7 +66,7 @@ var (
 	noticeDone     chan int
 	bar            *pb.ProgressBar
 	cookieFile     string
-	usrDefCookie   string
+	usrDefHeader   string
 )
 
 type SortString []string
@@ -98,7 +98,7 @@ func init() {
 	flag.BoolVar(&showVersion, "V", false, "Print version and copyright")
 	flag.StringVar(&cookieFile, "load-cookies", "", `Cookie file in the format 
 		originally used by Netscape's cookies.txt`)
-	flag.StringVar(&usrDefCookie, "cookie", "", `comma seperated cookies string`)
+	flag.StringVar(&usrDefHeader, "header", "", `comma seperated header string`)
 }
 
 func connCallback(n int) {
@@ -106,11 +106,10 @@ func connCallback(n int) {
 }
 
 func startRoutine(rangeFrom, pieceSize, alreadyHas int,
-	u goAxelUrl, c []conn.Cookie) {
+	u goAxelUrl, c []conn.Cookie, h []conn.Header) {
 	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
-		UserAgent: userAgent, UserName: u.userName,
-		Passwd: u.passwd, Path: u.path, Debug: debug,
-		Callback: connCallback, Cookie: c}
+		UserAgent: userAgent, UserName: u.userName, Passwd: u.passwd,
+		Path: u.path, Debug: debug, Callback: connCallback, Cookie: c, Header: h}
 	conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
 	noticeDone <- 1
 }
@@ -190,12 +189,12 @@ func fileSize(fileName string) int64 {
 	return 0
 }
 
-func divideAndDownload(u goAxelUrl, cookie []conn.Cookie) {
+func divideAndDownload(u goAxelUrl, cookie []conn.Cookie, header []conn.Header) {
 	var filepath string
 	var startPos, remainder int
 
 	if acceptRange == false || connNum == 1 { //need not split work
-		go startRoutine(0, 0, 0, u, cookie)
+		go startRoutine(0, 0, 0, u, cookie, header)
 		return
 	}
 
@@ -215,7 +214,7 @@ func divideAndDownload(u goAxelUrl, cookie []conn.Cookie) {
 		if i == connNum-1 {
 			eachPieceSize += remainder
 		}
-		go startRoutine(startPos, eachPieceSize, alreadyHas, u, cookie)
+		go startRoutine(startPos, eachPieceSize, alreadyHas, u, cookie, header)
 	}
 }
 
@@ -258,10 +257,10 @@ func mergeChunkFiles() {
 }
 
 func getContentLengthAcceptRange(u goAxelUrl, c []conn.Cookie,
-	outputName string) (int, bool) {
+	h []conn.Header, outputName string) (int, bool) {
 	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
-		UserAgent: userAgent, UserName: u.userName,
-		Passwd: u.passwd, Path: u.path, Debug: debug, Cookie: c}
+		UserAgent: userAgent, UserName: u.userName, Passwd: u.passwd,
+		Path: u.path, Debug: debug, Cookie: c, Header: h}
 
 	return conn.GetContentLength(outputName)
 }
@@ -324,7 +323,7 @@ func parseCookieLine(s []byte, host string) (c conn.Cookie, ok bool) {
 	return
 }
 
-func loadUsrDefinedCookie(usrDef string, cookie *[]conn.Cookie) {
+func loadUsrDefinedHeader(usrDef string) (header []conn.Header) {
 	s := strings.Split(usrDef, ";")
 	for i := 0; i < len(s); i++ {
 		if len(s[i]) < 3 {
@@ -344,8 +343,9 @@ func loadUsrDefinedCookie(usrDef string, cookie *[]conn.Cookie) {
 				val += ":"
 			}
 		}
-		*cookie = append(*cookie, conn.Cookie{Key: kv[0], Val: val})
+		header = append(header, conn.Header{Header: kv[0], Value: val})
 	}
+	return
 }
 
 func loadCookies(cookiePath, host string) (cookie []conn.Cookie, ok bool) {
@@ -383,8 +383,6 @@ func loadCookies(cookiePath, host string) (cookie []conn.Cookie, ok bool) {
 		}
 	}
 
-	loadUsrDefinedCookie(usrDefCookie, &cookie)
-
 	ok = true
 	return
 }
@@ -401,7 +399,10 @@ func downSingleFile(url string) bool {
 	if !ok {
 		cookies = make([]conn.Cookie, 0)
 	}
-	contentLength, acceptRange = getContentLengthAcceptRange(u, cookies, outputFileName)
+
+	headers := loadUsrDefinedHeader(usrDefHeader)
+
+	contentLength, acceptRange = getContentLengthAcceptRange(u, cookies, headers, outputFileName)
 
 	if debug {
 		fmt.Printf("[DEBUG] content length:%d,accept range:%t, cookie file:%s\n",
@@ -418,7 +419,7 @@ func downSingleFile(url string) bool {
 	defer outputFile.Close()
 
 	bar.Start()
-	divideAndDownload(u, cookies)
+	divideAndDownload(u, cookies, headers)
 
 	for i := 0; i < connNum; i++ {
 		<-noticeDone

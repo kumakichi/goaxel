@@ -171,13 +171,30 @@ func (http *HTTP) WriteToFile(outputName string, rangeFrom,
 	return
 }
 
-func (http *HTTP) loadCookies(c []Cookie) {
-	for _, v := range c {
-		http.AddHeader(fmt.Sprintf("%s:%s", v.Key, v.Val))
+func (http *HTTP) loadUsrDefHeaders(h []Header) {
+	if len(h) == 0 {
+		return
+	}
+
+	for _, v := range h {
+		http.AddHeader(fmt.Sprintf("%s:%s", v.Header, v.Value))
 	}
 }
 
-func (http *HTTP) Get(url string, c []Cookie, rangeFrom, pieceSize, alreadyHas int) {
+func (http *HTTP) loadCookies(c []Cookie) {
+	if len(c) == 0 {
+		return
+	}
+
+	cookie := ""
+	for _, v := range c {
+		cookie += v.Key + "=" + v.Val + ";"
+	}
+	cookie = cookie[:len(cookie)-1] //remove the last ';'
+	http.AddHeader(fmt.Sprintf("Cookie:%s", cookie))
+}
+
+func (http *HTTP) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) {
 	rangeFrom += alreadyHas
 
 	http.AddHeader(fmt.Sprintf("GET %s HTTP/1.1", url))
@@ -190,6 +207,7 @@ func (http *HTTP) Get(url string, c []Cookie, rangeFrom, pieceSize, alreadyHas i
 		http.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", rangeFrom, rangeFrom+pieceSize-1))
 	}
 	http.AddHeader(fmt.Sprintf("User-Agent: %s", http.UserAgent))
+	http.loadUsrDefHeaders(h)
 	http.loadCookies(c)
 	http.AddHeader("")
 
