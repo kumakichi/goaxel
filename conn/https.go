@@ -171,6 +171,29 @@ func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
 	return
 }
 
+func (https *HTTPS) loadUsrDefHeaders(h []Header) {
+	if len(h) == 0 {
+		return
+	}
+
+	for _, v := range h {
+		https.AddHeader(fmt.Sprintf("%s:%s", v.Header, v.Value))
+	}
+}
+
+func (https *HTTPS) loadCookies(c []Cookie) {
+	if len(c) == 0 {
+		return
+	}
+
+	cookie := ""
+	for _, v := range c {
+		cookie += v.Key + "=" + v.Val + ";"
+	}
+	cookie = cookie[:len(cookie)-1] //remove the last ';'
+	https.AddHeader(fmt.Sprintf("Cookie:%s", cookie))
+}
+
 func (https *HTTPS) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) {
 	rangeFrom += alreadyHas
 
@@ -184,6 +207,8 @@ func (https *HTTPS) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize
 		https.AddHeader(fmt.Sprintf("Range: bytes=%d-%d", rangeFrom, rangeFrom+pieceSize-1))
 	}
 	https.AddHeader(fmt.Sprintf("User-Agent: %s", https.UserAgent))
+	https.loadUsrDefHeaders(h)
+	https.loadCookies(c)
 	https.AddHeader("")
 
 	if https.Debug {
