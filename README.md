@@ -2,6 +2,10 @@ goaxel
 ======
 Goroutines Download Accelerator
 
+Originally comes from [this repository](https://github.com/xiangzhai/goaxel) created by @xiangzhai
+
+But i add features like user-defined headers, mozilla cookies.txt support
+
 install 
 =======
 ```
@@ -12,27 +16,5 @@ go build
 
 usage 
 =====
-* goaxel -d http://www.linuxdeepin.com/index.en.html 
-* goaxel -n 6 http://www.linuxdeepin.com/index.en.html
-
-screenshot 
-==========
-![ScreenShot](https://raw.github.com/kumakichi/goaxel/master/doc/console.png)
-
-TODO 
-====
-- [x] command parse args
-- [x] HTTP protocol
-- [x] FTP protocol
-- [x] continue downloading from the point of interruption
-- [x] command progress bar
-- [x] mirror support
-- [x] HTTPS protocol
-- [ ] recursive
-- [ ] convert links
-- [ ] page requisites
-- [ ] reject list
-- [ ] BitTorrent protocol
-- [ ] eMule protocol
-- [ ] MagNet protocol
-- [ ] QML UI
+* goaxel -header="Referer:http://ref.test.com;Accept-Encoding:gzip, deflate" -d -o out.aac -U="Mozilla/5.0 (X11; Linux i686; rv:32.0) Gecko/20100101 Firefox/32.0" -n=2 -load-cookies="./cookies.txt" -p /dev/shm/temp http://file.test.com/test.zip?i=0&j=1
+* goaxel -h
