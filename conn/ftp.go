@@ -84,9 +84,10 @@ func (ftp *FTP) Connect(host string, port int) bool {
 		ftp.user = "anonymous"
 	}
 	ftp.Login(ftp.user, ftp.passwd)
-	if ftp.Code == 530 {
+	if ftp.Code != 230 {
 		fmt.Println("ERROR: login failure")
-		return false
+		os.Exit(-1)
+		// return false
 	}
 	ftp.Request("TYPE I")
 	dir := path.Dir(ftp.path)
@@ -163,6 +164,11 @@ func (ftp *FTP) IsAcceptRange() bool {
 func (ftp *FTP) Response() (code int, message string) {
 	ret := make([]byte, 1024)
 	n, _ := ftp.conn.Read(ret)
+	if n < 5 {
+		code = -1
+		message = ""
+		return
+	}
 	msg := string(ret[:n])
 	code, _ = strconv.Atoi(msg[:3])
 	message = msg[4 : len(msg)-2]
@@ -179,8 +185,9 @@ func (ftp *FTP) Request(cmd string) {
 	ftp.conn.Write([]byte(cmd + "\r\n"))
 	ftp.cmd = cmd
 	ftp.Code, ftp.Message = ftp.Response()
-	if cmd == "PASV" {
+	if cmd == "PASV" && ftp.Code > 0 {
 		start, end := strings.Index(ftp.Message, "("), strings.Index(ftp.Message, ")")
+		fmt.Println(ftp.user, ftp.passwd, start, end, ftp.Code, ftp.Message)
 		s := strings.Split(ftp.Message[start:end], ",")
 		l1, _ := strconv.Atoi(s[len(s)-2])
 		l2, _ := strconv.Atoi(s[len(s)-1])

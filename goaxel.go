@@ -66,6 +66,8 @@ var (
 	bar            *pb.ProgressBar
 	cookieFile     string
 	usrDefHeader   string
+	usrDefUser     string
+	usrDefPwd      string
 )
 
 type SortString []string
@@ -98,6 +100,8 @@ func init() {
 	flag.StringVar(&cookieFile, "load-cookies", "", `Cookie file in the format 
 		originally used by Netscape's cookies.txt`)
 	flag.StringVar(&usrDefHeader, "header", "", `comma seperated header string`)
+	flag.StringVar(&usrDefUser, "user", "", "Specify username")
+	flag.StringVar(&usrDefPwd, "pass", "", "Specify password")
 }
 
 func connCallback(n int) {
@@ -139,6 +143,14 @@ func parseUrl(urlStr string) (g goAxelUrl, e error) {
 	if userinfo := u.User; userinfo != nil {
 		g.userName = userinfo.Username()
 		g.passwd, _ = userinfo.Password()
+	}
+
+	if usrDefUser != "" {
+		g.userName = usrDefUser
+	}
+
+	if usrDefPwd != "" {
+		g.passwd = usrDefPwd
 	}
 
 	if g.path = getFixedUrlPath(urlStr, u); g.path == "" { // links like : http://www.google.com
