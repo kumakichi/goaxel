@@ -73,6 +73,7 @@ func (https *HTTPS) Response() (code int, message string) {
 				fmt.Println("ERROR:", https.Error.Error())
 				return
 			}
+			break
 		}
 		if data[0] == '\r' {
 			continue
@@ -89,7 +90,6 @@ func (https *HTTPS) Response() (code int, message string) {
 	if https.Debug {
 		fmt.Println("DEBUG:", https.headerResponse)
 	}
-	https.conn.Close()
 
 	code = 200
 	message = "OK"

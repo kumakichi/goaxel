@@ -64,7 +64,7 @@ var (
 	acceptRange    bool
 	noticeDone     chan int
 	bar            *pb.ProgressBar
-	cookieFile     string
+	cookiePath     string
 	usrDefHeader   string
 	usrDefUser     string
 	usrDefPwd      string
@@ -91,15 +91,13 @@ func (s SortString) Less(i, j int) bool {
 func init() {
 	flag.IntVar(&connNum, "n", 3, "Specify the number of connections")
 	flag.StringVar(&outputFileName, "o", defaultOutputFileName,
-		`Specify output file name 
-		If more than 1 url specified, this option will be ignored`)
+		`Specify output file name, if more than 1 url specified, this option will be ignored`)
 	flag.StringVar(&userAgent, "U", appName, "Set user agent")
 	flag.BoolVar(&debug, "d", false, "Print debug infomation")
 	flag.StringVar(&outputPath, "p", ".", "Specify output file path")
 	flag.BoolVar(&showVersion, "V", false, "Print version and copyright")
-	flag.StringVar(&cookieFile, "load-cookies", "", `Cookie file in the format 
-		originally used by Netscape's cookies.txt`)
-	flag.StringVar(&usrDefHeader, "header", "", `comma seperated header string`)
+	flag.StringVar(&cookiePath, "load-cookies", "", `Cookie file in the format, originally used by Netscape's cookies.txt`)
+	flag.StringVar(&usrDefHeader, "header", "", `semicolon seperated header string`)
 	flag.StringVar(&usrDefUser, "user", "", "Specify username")
 	flag.StringVar(&usrDefPwd, "pass", "", "Specify password")
 }
@@ -153,7 +151,7 @@ func parseUrl(urlStr string) (g goAxelUrl, e error) {
 		g.passwd = usrDefPwd
 	}
 
-	if g.path = getFixedUrlPath(urlStr, u); g.path == "" { // links like : http://www.google.com
+	if g.path = getFixedUrlPath(urlStr, u); g.path == "" || g.path == "/" { // links like : http://www.google.com
 		g.path = "/"
 	} else if outputFileName == defaultOutputFileName {
 		outputFileName = path.Base(g.path)
@@ -245,7 +243,7 @@ func mergeChunkFiles() {
 
 		chunkReader := bufio.NewReader(chunkFile)
 		chunkWriter := bufio.NewWriter(outputFile)
-		buf := make([]byte, 1024*1024)
+		buf := make([]byte, 100*1024*1024)
 
 		for {
 			n, err = chunkReader.Read(buf)
@@ -337,7 +335,8 @@ func parseCookieLine(s []byte, host string) (c conn.Cookie, ok bool) {
 func loadUsrDefinedHeader(usrDef string) (header []conn.Header) {
 	s := strings.Split(usrDef, ";")
 	for i := 0; i < len(s); i++ {
-		if len(s[i]) < 3 {
+		l := len(s[i])
+		if l < 3 {
 			continue
 		}
 
@@ -347,13 +346,11 @@ func loadUsrDefinedHeader(usrDef string) (header []conn.Header) {
 		}
 
 		//Referer:http://www.google.com
-		val := ""
-		for j := 1; j < len(kv); j++ {
-			val += kv[j]
-			if j != len(kv)-1 {
-				val += ":"
-			}
+		idx := strings.Index(s[i], ":")
+		if -1 == idx {
+			return
 		}
+		val := s[i][idx+1:l]
 		header = append(header, conn.Header{Header: kv[0], Value: val})
 	}
 	return
@@ -406,7 +403,7 @@ func downSingleFile(url string) bool {
 		return false
 	}
 
-	cookies, ok := loadCookies(cookieFile, u.host)
+	cookies, ok := loadCookies(cookiePath, u.host)
 	if !ok {
 		cookies = make([]conn.Cookie, 0)
 	}
@@ -417,7 +414,7 @@ func downSingleFile(url string) bool {
 
 	if debug {
 		fmt.Printf("[DEBUG] content length:%d,accept range:%t, cookie file:%s\n",
-			contentLength, acceptRange, cookieFile)
+			contentLength, acceptRange, cookiePath)
 	}
 
 	bar = createProgressBar(contentLength)
@@ -443,7 +440,7 @@ func downSingleFile(url string) bool {
 func showVersionInfo() {
 	fmt.Println(fmt.Sprintf("%s Version 1.1", appName))
 	fmt.Println("Copyright (C) 2013 Leslie Zhai")
-	fmt.Println("Copyright (C) 2014 kumakichi")
+	fmt.Println("Copyright (C) 2014-2017 kumakichi")
 }
 
 func showUsage() {
@@ -474,14 +471,14 @@ func changeToOutputDir(dst string) {
 func getCookieAbsolutePath() {
 	var err error
 
-	if cookieFile == "" {
+	if cookiePath == "" {
 		return
 	}
 
-	cookieFile, err = filepath.Abs(cookieFile)
+	cookiePath, err = filepath.Abs(cookiePath)
 	if err != nil {
-		cookieFile = ""
-		log.Fatal("Error get absolute path :", cookieFile)
+		cookiePath = ""
+		log.Fatal("Error get absolute path :", cookiePath)
 	}
 }
 

@@ -73,6 +73,7 @@ func (http *HTTP) Response() (code int, message string) {
 				fmt.Println("ERROR:", http.Error.Error())
 				return
 			}
+			break
 		}
 		if data[0] == '\r' {
 			continue
@@ -89,7 +90,6 @@ func (http *HTTP) Response() (code int, message string) {
 	if http.Debug {
 		fmt.Println("DEBUG:", http.headerResponse)
 	}
-	http.conn.Close()
 
 	code = 200
 	message = "OK"
