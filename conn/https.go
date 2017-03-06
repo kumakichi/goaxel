@@ -63,7 +63,7 @@ func (https *HTTPS) AddHeader(header string) {
 func (https *HTTPS) Response() (code int, message string) {
 	code = -1
 	message = "NOT OK"
-	defer https.conn.Close()
+	//defer https.conn.Close()
 	data := make([]byte, 1)
 	for i := 0; ; {
 		n, err := https.conn.Read(data)

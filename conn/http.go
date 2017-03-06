@@ -63,7 +63,7 @@ func (http *HTTP) AddHeader(header string) {
 func (http *HTTP) Response() (code int, message string) {
 	code = -1
 	message = "NOT OK"
-	defer http.conn.Close()
+	//defer http.conn.Close()
 	data := make([]byte, 1)
 	for i := 0; ; {
 		n, err := http.conn.Read(data)

@@ -52,6 +52,7 @@ type goAxelUrl struct {
 }
 
 var (
+	infoConn       *conn.CONN
 	connNum        int
 	userAgent      string
 	showVersion    bool
@@ -89,7 +90,7 @@ func (s SortString) Less(i, j int) bool {
 }
 
 func init() {
-	flag.IntVar(&connNum, "n", 3, "Specify the number of connections")
+	flag.IntVar(&connNum, "n", 1, "Specify the number of connections")
 	flag.StringVar(&outputFileName, "o", defaultOutputFileName,
 		`Specify output file name, if more than 1 url specified, this option will be ignored`)
 	flag.StringVar(&userAgent, "U", appName, "Set user agent")
@@ -107,11 +108,17 @@ func connCallback(n int) {
 }
 
 func startRoutine(rangeFrom, pieceSize, alreadyHas int,
-	u goAxelUrl, c []conn.Cookie, h []conn.Header) {
-	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
-		UserAgent: userAgent, UserName: u.userName, Passwd: u.passwd,
-		Path: u.path, Debug: debug, Callback: connCallback, Cookie: c, Header: h}
-	conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
+	u goAxelUrl, c []conn.Cookie, h []conn.Header, loader conn.DownLoader) {
+	if 0 == rangeFrom { // use infoConn to speed up downloading progress
+		loader.SetCallBack(connCallback)
+		loader.Get(infoConn.Path, infoConn.Cookie, infoConn.Header, rangeFrom, pieceSize, alreadyHas)
+		loader.WriteToFile(outputFileName, rangeFrom, pieceSize, alreadyHas)
+	} else {
+		conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
+			UserAgent:           userAgent, UserName: u.userName, Passwd: u.passwd,
+			Path:                u.path, Debug: debug, Callback: connCallback, Cookie: c, Header: h}
+		conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
+	}
 	noticeDone <- 1
 }
 
@@ -198,12 +205,12 @@ func fileSize(fileName string) int64 {
 	return 0
 }
 
-func divideAndDownload(u goAxelUrl, cookie []conn.Cookie, header []conn.Header) {
+func divideAndDownload(u goAxelUrl, cookie []conn.Cookie, header []conn.Header, loader conn.DownLoader) {
 	var filepath string
 	var startPos, remainder int
 
 	if acceptRange == false || connNum == 1 { //need not split work
-		go startRoutine(0, 0, 0, u, cookie, header)
+		go startRoutine(0, 0, 0, u, cookie, header, loader)
 		return
 	}
 
@@ -223,7 +230,7 @@ func divideAndDownload(u goAxelUrl, cookie []conn.Cookie, header []conn.Header) 
 		if i == connNum-1 {
 			eachPieceSize += remainder
 		}
-		go startRoutine(startPos, eachPieceSize, alreadyHas, u, cookie, header)
+		go startRoutine(startPos, eachPieceSize, alreadyHas, u, cookie, header, loader)
 	}
 }
 
@@ -266,12 +273,12 @@ func mergeChunkFiles() {
 }
 
 func getContentLengthAcceptRange(u goAxelUrl, c []conn.Cookie,
-	h []conn.Header, outputName string) (int, bool) {
-	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
+	h []conn.Header, outputName string) (int, bool, conn.DownLoader) {
+	infoConn = &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
 		UserAgent: userAgent, UserName: u.userName, Passwd: u.passwd,
 		Path: u.path, Debug: debug, Cookie: c, Header: h}
 
-	return conn.GetContentLength(outputName)
+	return infoConn.GetContentLength(outputName)
 }
 
 func createProgressBar(length int) (bar *pb.ProgressBar) {
@@ -350,7 +357,7 @@ func loadUsrDefinedHeader(usrDef string) (header []conn.Header) {
 		if -1 == idx {
 			return
 		}
-		val := s[i][idx+1:l]
+		val := s[i][idx+1 : l]
 		header = append(header, conn.Header{Header: kv[0], Value: val})
 	}
 	return
@@ -410,7 +417,8 @@ func downSingleFile(url string) bool {
 
 	headers := loadUsrDefinedHeader(usrDefHeader)
 
-	contentLength, acceptRange = getContentLengthAcceptRange(u, cookies, headers, outputFileName)
+	var infoLoader conn.DownLoader
+	contentLength, acceptRange, infoLoader = getContentLengthAcceptRange(u, cookies, headers, outputFileName)
 
 	if debug {
 		fmt.Printf("[DEBUG] content length:%d,accept range:%t, cookie file:%s\n",
@@ -427,7 +435,7 @@ func downSingleFile(url string) bool {
 	defer outputFile.Close()
 
 	bar.Start()
-	divideAndDownload(u, cookies, headers)
+	divideAndDownload(u, cookies, headers, infoLoader)
 
 	for i := 0; i < connNum; i++ {
 		<-noticeDone

@@ -76,7 +76,7 @@ func (c *CONN) Connect() (downLoader DownLoader, ok bool) {
 	return
 }
 
-func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
+func (c *CONN) GetContentLength(fileName string) (length int, accept bool, loader DownLoader) {
 	length = 0
 	accept = false
 
@@ -84,7 +84,7 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 	if false == ok {
 		return
 	}
-	defer downLoader.Close()
+	//defer downLoader.Close()
 
 	switch c.Protocol {
 	case "http", "https":
@@ -94,6 +94,7 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool) {
 	}
 	length = downLoader.GetContentLength(fileName)
 	accept = downLoader.IsAcceptRange()
+	loader = downLoader
 
 	return
 }
