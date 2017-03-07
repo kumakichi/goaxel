@@ -23,7 +23,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"os"
 	"path"
@@ -40,6 +39,7 @@ import (
 const (
 	appName               string = "GoAxel"
 	defaultOutputFileName string = "default"
+	maxFileNameLen        int    = 20
 )
 
 type goAxelUrl struct {
@@ -52,7 +52,7 @@ type goAxelUrl struct {
 }
 
 var (
-	infoConn       *conn.CONN
+	tryThreadhold  int
 	connNum        int
 	userAgent      string
 	showVersion    bool
@@ -63,12 +63,13 @@ var (
 	outputFile     *os.File
 	contentLength  int
 	acceptRange    bool
-	noticeDone     chan int
+	noticeDone     chan bool
 	bar            *pb.ProgressBar
 	cookiePath     string
 	usrDefHeader   string
 	usrDefUser     string
 	usrDefPwd      string
+	forcePiece     bool
 )
 
 type SortString []string
@@ -90,11 +91,13 @@ func (s SortString) Less(i, j int) bool {
 }
 
 func init() {
-	flag.IntVar(&connNum, "n", 1, "Specify the number of connections")
+	flag.IntVar(&tryThreadhold, "t", 5, "retry threshold")
+	flag.IntVar(&connNum, "n", 5, "Specify the number of connections")
 	flag.StringVar(&outputFileName, "o", defaultOutputFileName,
 		`Specify output file name, if more than 1 url specified, this option will be ignored`)
 	flag.StringVar(&userAgent, "U", appName, "Set user agent")
 	flag.BoolVar(&debug, "d", false, "Print debug infomation")
+	flag.BoolVar(&forcePiece, "f", false, "Force goaxel to download pieces")
 	flag.StringVar(&outputPath, "p", ".", "Specify output file path")
 	flag.BoolVar(&showVersion, "V", false, "Print version and copyright")
 	flag.StringVar(&cookiePath, "load-cookies", "", `Cookie file in the format, originally used by Netscape's cookies.txt`)
@@ -108,18 +111,24 @@ func connCallback(n int) {
 }
 
 func startRoutine(rangeFrom, pieceSize, alreadyHas int,
-	u goAxelUrl, c []conn.Cookie, h []conn.Header, loader conn.DownLoader) {
-	if 0 == rangeFrom { // use infoConn to speed up downloading progress
-		loader.SetCallBack(connCallback)
-		loader.Get(infoConn.Path, infoConn.Cookie, infoConn.Header, rangeFrom, pieceSize, alreadyHas)
-		loader.WriteToFile(outputFileName, rangeFrom, pieceSize, alreadyHas)
-	} else {
+	u goAxelUrl, c []conn.Cookie, h []conn.Header) {
+	dlDone := false
+	written := 0
+
+	for try := 0; try < tryThreadhold; try++ {
+		Info.Printf("try time(s):%d, rangeFrom: %d, pieceSize:%d, alreadyHas:%d\n", try, rangeFrom, pieceSize, alreadyHas)
 		conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
-			UserAgent:           userAgent, UserName: u.userName, Passwd: u.passwd,
-			Path:                u.path, Debug: debug, Callback: connCallback, Cookie: c, Header: h}
-		conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
+			UserAgent: userAgent, UserName: u.userName, Passwd: u.passwd,
+			Path: u.path, Debug: debug, Callback: connCallback, Cookie: c, Header: h}
+		written = conn.Get(rangeFrom, pieceSize, alreadyHas, outputFileName)
+
+		alreadyHas += written
+		if alreadyHas == pieceSize {
+			dlDone = true
+			break
+		}
 	}
-	noticeDone <- 1
+	noticeDone <- dlDone
 }
 
 //http://ts.test.com/file/a.aac?fid=77&tid=88
@@ -164,6 +173,11 @@ func parseUrl(urlStr string) (g goAxelUrl, e error) {
 		outputFileName = path.Base(g.path)
 	}
 
+	l := len(outputFileName)
+	if l > maxFileNameLen {
+		outputFileName = outputFileName[l-maxFileNameLen : l]
+	}
+
 	g.host = u.Host
 	pos := strings.Index(g.host, ":")
 	if pos != -1 { // user defined port
@@ -205,12 +219,13 @@ func fileSize(fileName string) int64 {
 	return 0
 }
 
-func divideAndDownload(u goAxelUrl, cookie []conn.Cookie, header []conn.Header, loader conn.DownLoader) {
+func divideAndDownload(u goAxelUrl, cookie []conn.Cookie, header []conn.Header) {
 	var filepath string
 	var startPos, remainder int
 
-	if acceptRange == false || connNum == 1 { //need not split work
-		go startRoutine(0, 0, 0, u, cookie, header, loader)
+	Info.Printf("acceptRange:%t, connNum:%d\n", acceptRange, connNum)
+	if (acceptRange == false || connNum == 1) && !forcePiece { //need not split work
+		go startRoutine(0, contentLength, 0, u, cookie, header)
 		return
 	}
 
@@ -230,7 +245,8 @@ func divideAndDownload(u goAxelUrl, cookie []conn.Cookie, header []conn.Header, 
 		if i == connNum-1 {
 			eachPieceSize += remainder
 		}
-		go startRoutine(startPos, eachPieceSize, alreadyHas, u, cookie, header, loader)
+		Info.Printf("%s starts at %d, already has %d\n", filepath, startPos, alreadyHas)
+		go startRoutine(startPos, eachPieceSize, alreadyHas, u, cookie, header)
 	}
 }
 
@@ -241,7 +257,7 @@ func mergeChunkFiles() {
 
 	chunkFiles, err = getChunkFilesList(outputFileName)
 	if err != nil {
-		log.Fatal("Merge chunk files failed :", err.Error())
+		Error.Fatal("Merge chunk files failed :", err.Error())
 	}
 
 	for _, v := range chunkFiles {
@@ -272,13 +288,13 @@ func mergeChunkFiles() {
 	}
 }
 
-func getContentLengthAcceptRange(u goAxelUrl, c []conn.Cookie,
-	h []conn.Header, outputName string) (int, bool, conn.DownLoader) {
-	infoConn = &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
+func getContentInfomation(u goAxelUrl, c []conn.Cookie,
+	h []conn.Header, outputName string) (int, bool, string) {
+	conn := &conn.CONN{Protocol: u.protocol, Host: u.host, Port: u.port,
 		UserAgent: userAgent, UserName: u.userName, Passwd: u.passwd,
 		Path: u.path, Debug: debug, Cookie: c, Header: h}
 
-	return infoConn.GetContentLength(outputName)
+	return conn.GetContentInfo(outputName)
 }
 
 func createProgressBar(length int) (bar *pb.ProgressBar) {
@@ -417,8 +433,11 @@ func downSingleFile(url string) bool {
 
 	headers := loadUsrDefinedHeader(usrDefHeader)
 
-	var infoLoader conn.DownLoader
-	contentLength, acceptRange, infoLoader = getContentLengthAcceptRange(u, cookies, headers, outputFileName)
+	var headerFilename string
+	contentLength, acceptRange, headerFilename = getContentInfomation(u, cookies, headers, outputFileName)
+	if "" != headerFilename {
+		outputFileName = headerFilename
+	}
 
 	if debug {
 		fmt.Printf("[DEBUG] content length:%d,accept range:%t, cookie file:%s\n",
@@ -429,19 +448,27 @@ func downSingleFile(url string) bool {
 	defer bar.Finish()
 
 	if outputFile, err = os.Create(outputFileName); err != nil {
-		log.Println("error create:", outputFile, ",link:", url)
+		Info.Println("error create:", outputFile, ",link:", url, ",error:", err.Error(), ",name:", len(outputFileName))
 		return false
 	}
 	defer outputFile.Close()
 
 	bar.Start()
-	divideAndDownload(u, cookies, headers, infoLoader)
+	divideAndDownload(u, cookies, headers)
 
+	allPiecesOk := true
 	for i := 0; i < connNum; i++ {
-		<-noticeDone
+		if !<-noticeDone {
+			fmt.Printf("Part %d is not ok!\n", i)
+			allPiecesOk = false
+		}
 	}
-	mergeChunkFiles()
 
+	if !allPiecesOk {
+		return false
+	}
+
+	mergeChunkFiles()
 	return true
 }
 
@@ -459,7 +486,7 @@ func showUsage() {
 func checkUrls(u *[]string) {
 	if len(urls) == 0 {
 		if false == showVersion {
-			log.Fatal("You must specify at least one url to download")
+			Error.Fatal("You must specify at least one url to download")
 		}
 	}
 
@@ -471,7 +498,7 @@ func checkUrls(u *[]string) {
 func changeToOutputDir(dst string) {
 	if dst != "." {
 		if err := os.Chdir(dst); err != nil {
-			log.Fatal("Change directory failed :", dst, err)
+			Error.Fatal("Change directory failed :", dst, err)
 		}
 	}
 }
@@ -486,7 +513,7 @@ func getCookieAbsolutePath() {
 	cookiePath, err = filepath.Abs(cookiePath)
 	if err != nil {
 		cookiePath = ""
-		log.Fatal("Error get absolute path :", cookiePath)
+		Error.Fatal("Error get absolute path :", cookiePath)
 	}
 }
 
@@ -502,13 +529,15 @@ func main() {
 		showVersionInfo()
 	}
 
+	initLog()
+
 	urls = flag.Args()
 	checkUrls(&urls)
 
 	getCookieAbsolutePath()
 	changeToOutputDir(outputPath)
 
-	noticeDone = make(chan int)
+	noticeDone = make(chan bool)
 	for i := 0; i < len(urls); i++ {
 		downSingleFile(urls[i])
 	}

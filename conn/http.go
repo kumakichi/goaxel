@@ -131,11 +131,20 @@ func (http *HTTP) readResponseHeaders() {
 	}
 }
 
-func (http *HTTP) writeContent(f *os.File) {
+func (http *HTTP) writeContent(f *os.File, pieceSize, alreadyHas int) (written int) {
 	data := make([]byte, buffer_size)
+	written = 0
 
+	var n int
+	var err error
 	for {
-		n, err := http.conn.Read(data)
+		left := pieceSize - alreadyHas - written
+		if left >= buffer_size {
+			n, err = http.conn.Read(data)
+		} else {
+			n, err = http.conn.Read(data[:left])
+		}
+
 		if err != nil && err != io.EOF {
 			http.Error = err
 			fmt.Println("ERROR:", http.Error.Error())
@@ -147,28 +156,27 @@ func (http *HTTP) writeContent(f *os.File) {
 			http.Callback(n)
 		}
 		http.offset += n
+		written += n
 
-		if err == io.EOF {
+		if err == io.EOF || http.offset == pieceSize {
 			return
 		}
 	}
 }
 
 func (http *HTTP) WriteToFile(outputName string, rangeFrom,
-	pieceSize, alreadyHas int) {
+	pieceSize, alreadyHas int) int {
 	http.offset = alreadyHas
 
 	chunkName := fmt.Sprintf("%s.part.%d", outputName, rangeFrom)
-	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY, 0664)
+	f, err := os.OpenFile(chunkName, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0664)
 	if err != nil {
 		panic(err)
 	}
 	defer f.Close()
 
 	http.readResponseHeaders()
-	http.writeContent(f)
-
-	return
+	return http.writeContent(f, pieceSize, alreadyHas)
 }
 
 func (http *HTTP) loadUsrDefHeaders(h []Header) {
@@ -219,6 +227,15 @@ func (http *HTTP) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, 
 	if http.Error != nil {
 		fmt.Println("ERROR: ", http.Error.Error())
 	}
+}
+
+func (http *HTTP) GetFilename() string {
+	r, _ := regexp.Compile(`filename="(.*)"`)
+	result := r.FindStringSubmatch(http.headerResponse)
+	if len(result) > 1 {
+		return result[1]
+	}
+	return ""
 }
 
 func (http *HTTP) IsAcceptRange() bool {

@@ -48,8 +48,9 @@ type DownLoader interface {
 	SetConnOpt(c *CONN)
 	Connect(host string, port int) bool
 	SetCallBack(cb func(int))
-	WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas int)
+	WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas int) int
 	Close()
+	GetFilename() string
 }
 
 const (
@@ -76,7 +77,7 @@ func (c *CONN) Connect() (downLoader DownLoader, ok bool) {
 	return
 }
 
-func (c *CONN) GetContentLength(fileName string) (length int, accept bool, loader DownLoader) {
+func (c *CONN) GetContentInfo(fileName string) (length int, accept bool, filename string) {
 	length = 0
 	accept = false
 
@@ -94,12 +95,13 @@ func (c *CONN) GetContentLength(fileName string) (length int, accept bool, loade
 	}
 	length = downLoader.GetContentLength(fileName)
 	accept = downLoader.IsAcceptRange()
-	loader = downLoader
+	filename = downLoader.GetFilename()
 
 	return
 }
 
-func (c *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) {
+func (c *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) (written int) {
+	written = 0
 	downLoader, ok := c.Connect()
 	if false == ok {
 		return
@@ -108,5 +110,6 @@ func (c *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) {
 
 	downLoader.SetCallBack(c.Callback)
 	downLoader.Get(c.Path, c.Cookie, c.Header, rangeFrom, pieceSize, alreadyHas)
-	downLoader.WriteToFile(fileName, rangeFrom, pieceSize, alreadyHas)
+	written = downLoader.WriteToFile(fileName, rangeFrom, pieceSize, alreadyHas)
+	return
 }

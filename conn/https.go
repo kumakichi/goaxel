@@ -131,11 +131,20 @@ func (https *HTTPS) readResponseHeaders() {
 	}
 }
 
-func (https *HTTPS) writeContent(f *os.File) {
+func (https *HTTPS) writeContent(f *os.File, pieceSize, alreadyHas int) (written int) {
 	data := make([]byte, buffer_size)
+	written = 0
 
+	var n int
+	var err error
 	for {
-		n, err := https.conn.Read(data)
+		left := pieceSize - alreadyHas - written
+		if left >= buffer_size {
+			n, err = https.conn.Read(data)
+		} else {
+			n, err = https.conn.Read(data[:left])
+		}
+
 		if err != nil && err != io.EOF {
 			https.Error = err
 			fmt.Println("ERROR:", https.Error.Error())
@@ -147,15 +156,16 @@ func (https *HTTPS) writeContent(f *os.File) {
 			https.Callback(n)
 		}
 		https.offset += n
+		written += n
 
-		if err == io.EOF {
+		if err == io.EOF || https.offset == pieceSize {
 			return
 		}
 	}
 }
 
 func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
-	pieceSize, alreadyHas int) {
+	pieceSize, alreadyHas int) int {
 	https.offset = alreadyHas
 
 	chunkName := fmt.Sprintf("%s.part.%d", outputName, rangeFrom)
@@ -166,9 +176,7 @@ func (https *HTTPS) WriteToFile(outputName string, rangeFrom,
 	defer f.Close()
 
 	https.readResponseHeaders()
-	https.writeContent(f)
-
-	return
+	return https.writeContent(f, pieceSize, alreadyHas)
 }
 
 func (https *HTTPS) loadUsrDefHeaders(h []Header) {
@@ -219,6 +227,15 @@ func (https *HTTPS) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize
 	if https.Error != nil {
 		fmt.Println("ERROR: ", https.Error.Error())
 	}
+}
+
+func (https *HTTPS) GetFilename() string {
+	r, _ := regexp.Compile(`filename="(.*)"`)
+	result := r.FindStringSubmatch(https.headerResponse)
+	if len(result) > 1 {
+		return result[1]
+	}
+	return ""
 }
 
 func (https *HTTPS) IsAcceptRange() bool {

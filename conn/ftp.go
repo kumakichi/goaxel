@@ -107,8 +107,9 @@ func (ftp *FTP) Login(user, passwd string) {
 	ftp.passwd = passwd
 }
 
-func (ftp *FTP) writeContent(f *os.File, pieceSize int) {
+func (ftp *FTP) writeContent(f *os.File, pieceSize int) (written int) {
 	buff := make([]byte, buffer_size)
+	written = 0
 
 	for {
 		n, err := ftp.dataConn.Read(buff)
@@ -127,6 +128,7 @@ func (ftp *FTP) writeContent(f *os.File, pieceSize int) {
 			ftp.Callback(n)
 		}
 		ftp.offset += n
+		written += n
 
 		if err == io.EOF || ftp.offset == pieceSize {
 			return
@@ -134,7 +136,7 @@ func (ftp *FTP) writeContent(f *os.File, pieceSize int) {
 	}
 }
 
-func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas int) {
+func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas int) int {
 	ftp.offset = alreadyHas
 	defer ftp.dataConn.Close()
 
@@ -146,15 +148,17 @@ func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas in
 	defer f.Close()
 
 	ftp.Request("RETR " + fileName)
-	ftp.writeContent(f, pieceSize)
-
-	return
+	return ftp.writeContent(f, pieceSize)
 }
 
 func (ftp *FTP) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) {
 	ftp.Pasv()
 	ftp.dataConn = ftp.NewConnect()
 	ftp.Request(fmt.Sprintf("REST %d", rangeFrom+alreadyHas))
+}
+
+func (ftp *FTP) GetFilename() string {
+	return ""
 }
 
 func (ftp *FTP) IsAcceptRange() bool {
