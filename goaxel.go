@@ -99,15 +99,15 @@ func init() {
 	flag.StringVar(&outputFileName, "o", defaultOutputFileName,
 		`Specify output file name, if more than 1 url specified, this option will be ignored`)
 	flag.StringVar(&userAgent, "U", appName, "Set user agent")
+	flag.StringVar(&cfgPath, "c", ".", "Config file path")
 	flag.BoolVar(&debug, "d", false, "Print debug infomation")
-	flag.BoolVar(&forcePiece, "f", false, "Force goaxel to download pieces")
+	flag.BoolVar(&forcePiece, "f", false, "Force goaxel to use multi-thread")
 	flag.StringVar(&outputPath, "p", ".", "Specify output file path")
 	flag.BoolVar(&showVersion, "V", false, "Print version and copyright")
 	flag.StringVar(&cookiePath, "load-cookies", "", `Cookie file in the format, originally used by Netscape's cookies.txt`)
 	flag.StringVar(&usrDefHeader, "header", "", `semicolon seperated header string`)
 	flag.StringVar(&usrDefUser, "user", "", "Specify username")
 	flag.StringVar(&usrDefPwd, "pass", "", "Specify password")
-	flag.StringVar(&cfgPath, "c", ".", "Config file path")
 }
 
 func connCallback(n int) {
