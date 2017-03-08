@@ -40,6 +40,8 @@ const (
 	appName               string = "GoAxel"
 	defaultOutputFileName string = "default"
 	maxFileNameLen        int    = 20
+	CFG_FILENAME          string = ".goaxel_cfg"
+	CFG_DELIMETER         string = "##"
 )
 
 type goAxelUrl struct {
@@ -70,6 +72,7 @@ var (
 	usrDefUser     string
 	usrDefPwd      string
 	forcePiece     bool
+	cfgPath        string
 )
 
 type SortString []string
@@ -104,6 +107,7 @@ func init() {
 	flag.StringVar(&usrDefHeader, "header", "", `semicolon seperated header string`)
 	flag.StringVar(&usrDefUser, "user", "", "Specify username")
 	flag.StringVar(&usrDefPwd, "pass", "", "Specify password")
+	flag.StringVar(&cfgPath, "c", ".", "Config file path")
 }
 
 func connCallback(n int) {
@@ -434,7 +438,12 @@ func downSingleFile(url string) bool {
 	headers := loadUsrDefinedHeader(usrDefHeader)
 
 	var headerFilename string
-	contentLength, acceptRange, headerFilename = getContentInfomation(u, cookies, headers, outputFileName)
+	contentLength, acceptRange, headerFilename = cfgRead(url)
+	if -1 == contentLength {
+		contentLength, acceptRange, headerFilename = getContentInfomation(u, cookies, headers, outputFileName)
+		cfgWrite(url, contentLength, acceptRange, headerFilename)
+	}
+
 	if "" != headerFilename {
 		outputFileName = headerFilename
 	}
@@ -469,6 +478,7 @@ func downSingleFile(url string) bool {
 	}
 
 	mergeChunkFiles()
+	cfgDelete(url)
 	return true
 }
 
