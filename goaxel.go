@@ -222,17 +222,17 @@ func fileSize(fileName string) int64 {
 func divideAndDownload(u goAxelUrl, cookie []conn.Cookie, header []conn.Header) {
 	var filepath string
 	var startPos, remainder int
+	curConnNum := connNum
 
 	Info.Printf("acceptRange:%t, connNum:%d\n", acceptRange, connNum)
-	if (acceptRange == false || connNum == 1) && !forcePiece { //need not split work
-		go startRoutine(0, contentLength, 0, u, cookie, header)
-		return
+	if (acceptRange == false || curConnNum == 1) && !forcePiece { //need not split work
+		curConnNum = 1
 	}
 
-	eachPieceSize := contentLength / connNum
-	remainder = contentLength - eachPieceSize*connNum
+	eachPieceSize := contentLength / curConnNum
+	remainder = contentLength - eachPieceSize*curConnNum
 
-	for i := 0; i < connNum; i++ {
+	for i := 0; i < curConnNum; i++ {
 		startPos = i * eachPieceSize
 		filepath = fmt.Sprintf("%s.part.%d", outputFileName, startPos)
 
@@ -242,7 +242,7 @@ func divideAndDownload(u goAxelUrl, cookie []conn.Cookie, header []conn.Header) 
 		}
 
 		//the last piece,down addtional 'remainder',eg. split 9 to 4 + (4+'1')
-		if i == connNum-1 {
+		if i == curConnNum-1 {
 			eachPieceSize += remainder
 		}
 		Info.Printf("%s starts at %d, already has %d\n", filepath, startPos, alreadyHas)
@@ -453,8 +453,8 @@ func downSingleFile(url string) bool {
 	}
 	defer outputFile.Close()
 
-	bar.Start()
 	divideAndDownload(u, cookies, headers)
+	bar.Start()
 
 	allPiecesOk := true
 	for i := 0; i < connNum; i++ {
