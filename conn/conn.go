@@ -18,6 +18,8 @@
 
 package conn
 
+import "fmt"
+
 type Cookie struct {
 	Key, Val string
 }
@@ -41,7 +43,7 @@ type CONN struct {
 }
 
 type DownLoader interface {
-	Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int)
+	Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) error
 	Response() (code int, message string)
 	IsAcceptRange() bool
 	GetContentLength(path string) int
@@ -109,7 +111,11 @@ func (c *CONN) Get(rangeFrom, pieceSize, alreadyHas int, fileName string) (writt
 	defer downLoader.Close()
 
 	downLoader.SetCallBack(c.Callback)
-	downLoader.Get(c.Path, c.Cookie, c.Header, rangeFrom, pieceSize, alreadyHas)
+	err := downLoader.Get(c.Path, c.Cookie, c.Header, rangeFrom, pieceSize, alreadyHas)
+	if nil != err {
+		fmt.Print(err.Error())
+		return
+	}
 	written = downLoader.WriteToFile(fileName, rangeFrom, pieceSize, alreadyHas)
 	return
 }

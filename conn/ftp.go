@@ -151,10 +151,11 @@ func (ftp *FTP) WriteToFile(fileName string, rangeFrom, pieceSize, alreadyHas in
 	return ftp.writeContent(f, pieceSize)
 }
 
-func (ftp *FTP) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) {
+func (ftp *FTP) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) (err error) {
 	ftp.Pasv()
 	ftp.dataConn = ftp.NewConnect()
 	ftp.Request(fmt.Sprintf("REST %d", rangeFrom+alreadyHas))
+	return
 }
 
 func (ftp *FTP) GetFilename() string {

@@ -202,7 +202,7 @@ func (http *HTTP) loadCookies(c []Cookie) {
 	http.AddHeader(fmt.Sprintf("Cookie:%s", cookie))
 }
 
-func (http *HTTP) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) {
+func (http *HTTP) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) (err error) {
 	rangeFrom += alreadyHas
 
 	http.AddHeader(fmt.Sprintf("GET %s HTTP/1.1", url))
@@ -225,8 +225,10 @@ func (http *HTTP) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, 
 
 	_, http.Error = http.conn.Write([]byte(http.header))
 	if http.Error != nil {
+		err = http.Error
 		fmt.Println("ERROR: ", http.Error.Error())
 	}
+	return
 }
 
 func (http *HTTP) GetFilename() string {

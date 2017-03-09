@@ -202,7 +202,7 @@ func (https *HTTPS) loadCookies(c []Cookie) {
 	https.AddHeader(fmt.Sprintf("Cookie:%s", cookie))
 }
 
-func (https *HTTPS) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) {
+func (https *HTTPS) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize, alreadyHas int) (err error) {
 	rangeFrom += alreadyHas
 
 	https.AddHeader(fmt.Sprintf("GET %s HTTP/1.1", url))
@@ -220,13 +220,15 @@ func (https *HTTPS) Get(url string, c []Cookie, h []Header, rangeFrom, pieceSize
 	https.AddHeader("")
 
 	if https.Debug {
-		fmt.Println("DEBUG:", https.header)
+		fmt.Println("HEADER:", https.header)
 	}
 
 	_, https.Error = https.conn.Write([]byte(https.header))
 	if https.Error != nil {
+		err = https.Error
 		fmt.Println("ERROR: ", https.Error.Error())
 	}
+	return
 }
 
 func (https *HTTPS) GetFilename() string {
